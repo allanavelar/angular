@@ -1,15 +1,18 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {verifyNoBrowserErrors} from 'e2e_util/e2e_util';
 import {browser, by, element, protractor} from 'protractor';
 
-// TODO(matsko): make this test work again with new view engine.
+import {verifyNoBrowserErrors} from '../../../../../dev-infra/benchmark/driver-utilities';
+
+
+// Disabled because with ViewEngine animations within webworkers is not supported.
+// See: https://github.com/angular/angular/issues/18610
 xdescribe('WebWorkers Animations', function() {
   afterEach(() => {
     verifyNoBrowserErrors();

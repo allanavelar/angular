@@ -1,12 +1,12 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ParamMap, convertToParamMap} from '../src/shared';
+import {convertToParamMap, ParamMap} from '../src/shared';
 
 describe('ParamsMap', () => {
   it('should returns whether a parameter is present', () => {
@@ -38,7 +38,7 @@ describe('ParamsMap', () => {
     expect(map.get('name')).toEqual(null);
   });
 
-  it('should return `[]` when a mulitple valued element is absent', () => {
+  it('should return `[]` when a multiple valued element is absent', () => {
     const map = convertToParamMap({});
     expect(map.getAll('name')).toEqual([]);
   });

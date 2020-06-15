@@ -1,26 +1,30 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {hasLifecycleHook} from '@angular/compiler/src/lifecycle_reflector';
+import {hasLifecycleHook as hasLifecycleHookImpl, LifecycleHooks as Hooks} from '@angular/compiler/src/lifecycle_reflector';
 import {SimpleChanges} from '@angular/core';
-import {LifecycleHooks as Hooks} from '@angular/core/src/metadata/lifecycle_hooks';
+import {JitReflector} from '@angular/platform-browser-dynamic/src/compiler_reflector';
 
-export function main() {
+function hasLifecycleHook(hook: Hooks, directive: any): boolean {
+  return hasLifecycleHookImpl(new JitReflector(), hook, directive);
+}
+
+{
   describe('Create Directive', () => {
     describe('lifecycle', () => {
-
       describe('ngOnChanges', () => {
         it('should be true when the directive has the ngOnChanges method', () => {
           expect(hasLifecycleHook(Hooks.OnChanges, DirectiveWithOnChangesMethod)).toBe(true);
         });
 
-        it('should be false otherwise',
-           () => { expect(hasLifecycleHook(Hooks.OnChanges, DirectiveNoHooks)).toBe(false); });
+        it('should be false otherwise', () => {
+          expect(hasLifecycleHook(Hooks.OnChanges, DirectiveNoHooks)).toBe(false);
+        });
       });
 
       describe('ngOnDestroy', () => {
@@ -28,16 +32,19 @@ export function main() {
           expect(hasLifecycleHook(Hooks.OnDestroy, DirectiveWithOnDestroyMethod)).toBe(true);
         });
 
-        it('should be false otherwise',
-           () => { expect(hasLifecycleHook(Hooks.OnDestroy, DirectiveNoHooks)).toBe(false); });
+        it('should be false otherwise', () => {
+          expect(hasLifecycleHook(Hooks.OnDestroy, DirectiveNoHooks)).toBe(false);
+        });
       });
 
       describe('ngOnInit', () => {
-        it('should be true when the directive has the ngOnInit method',
-           () => { expect(hasLifecycleHook(Hooks.OnInit, DirectiveWithOnInitMethod)).toBe(true); });
+        it('should be true when the directive has the ngOnInit method', () => {
+          expect(hasLifecycleHook(Hooks.OnInit, DirectiveWithOnInitMethod)).toBe(true);
+        });
 
-        it('should be false otherwise',
-           () => { expect(hasLifecycleHook(Hooks.OnInit, DirectiveNoHooks)).toBe(false); });
+        it('should be false otherwise', () => {
+          expect(hasLifecycleHook(Hooks.OnInit, DirectiveNoHooks)).toBe(false);
+        });
       });
 
       describe('ngDoCheck', () => {
@@ -45,8 +52,9 @@ export function main() {
           expect(hasLifecycleHook(Hooks.DoCheck, DirectiveWithOnCheckMethod)).toBe(true);
         });
 
-        it('should be false otherwise',
-           () => { expect(hasLifecycleHook(Hooks.DoCheck, DirectiveNoHooks)).toBe(false); });
+        it('should be false otherwise', () => {
+          expect(hasLifecycleHook(Hooks.DoCheck, DirectiveNoHooks)).toBe(false);
+        });
       });
 
       describe('ngAfterContentInit', () => {
@@ -79,8 +87,9 @@ export function main() {
               .toBe(true);
         });
 
-        it('should be false otherwise',
-           () => { expect(hasLifecycleHook(Hooks.AfterViewInit, DirectiveNoHooks)).toBe(false); });
+        it('should be false otherwise', () => {
+          expect(hasLifecycleHook(Hooks.AfterViewInit, DirectiveNoHooks)).toBe(false);
+        });
       });
 
       describe('ngAfterViewChecked', () => {

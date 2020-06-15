@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -12,38 +12,75 @@ import {Inject, Injectable, InjectionToken, Optional} from './di';
 
 
 /**
- * A function that will be executed when an application is initialized.
- * @experimental
+ * An injection token that allows you to provide one or more initialization functions.
+ * These function are injected at application startup and executed during
+ * app initialization. If any of these functions returns a Promise, initialization
+ * does not complete until the Promise is resolved.
+ *
+ * You can, for example, create a factory function that loads language data
+ * or an external configuration, and provide that function to the `APP_INITIALIZER` token.
+ * That way, the function is executed during the application bootstrap process,
+ * and the needed data is available on startup.
+ *
+ * @publicApi
  */
 export const APP_INITIALIZER = new InjectionToken<Array<() => void>>('Application Initializer');
 
 /**
  * A class that reflects the state of running {@link APP_INITIALIZER}s.
  *
- * @experimental
+ * @publicApi
  */
 @Injectable()
 export class ApplicationInitStatus {
-  private _donePromise: Promise<any>;
-  private _done = false;
+  // TODO(issue/24571): remove '!'.
+  private resolve!: Function;
+  // TODO(issue/24571): remove '!'.
+  private reject!: Function;
+  private initialized = false;
+  public readonly donePromise: Promise<any>;
+  public readonly done = false;
 
-  constructor(@Inject(APP_INITIALIZER) @Optional() appInits: (() => any)[]) {
+  constructor(@Inject(APP_INITIALIZER) @Optional() private appInits: (() => any)[]) {
+    this.donePromise = new Promise((res, rej) => {
+      this.resolve = res;
+      this.reject = rej;
+    });
+  }
+
+  /** @internal */
+  runInitializers() {
+    if (this.initialized) {
+      return;
+    }
+
     const asyncInitPromises: Promise<any>[] = [];
-    if (appInits) {
-      for (let i = 0; i < appInits.length; i++) {
-        const initResult = appInits[i]();
+
+    const complete = () => {
+      (this as {done: boolean}).done = true;
+      this.resolve();
+    };
+
+    if (this.appInits) {
+      for (let i = 0; i < this.appInits.length; i++) {
+        const initResult = this.appInits[i]();
         if (isPromise(initResult)) {
           asyncInitPromises.push(initResult);
         }
       }
     }
-    this._donePromise = Promise.all(asyncInitPromises).then(() => { this._done = true; });
+
+    Promise.all(asyncInitPromises)
+        .then(() => {
+          complete();
+        })
+        .catch(e => {
+          this.reject(e);
+        });
+
     if (asyncInitPromises.length === 0) {
-      this._done = true;
+      complete();
     }
+    this.initialized = true;
   }
-
-  get done(): boolean { return this._done; }
-
-  get donePromise(): Promise<any> { return this._donePromise; }
 }

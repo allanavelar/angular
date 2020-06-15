@@ -92,22 +92,22 @@
   </div>
 
   <div>
-    The <code>hero.id</code> in the &lt;template *ngIf&gt; disappears:
+    The <code>hero.id</code> in the &lt;ng-template *ngIf&gt; disappears:
     <p>
-      <template *ngIf="showId">
+      <ng-template *ngIf="showId">
         Id: ({{hero.id}})
-      </template>
+      </ng-template>
       Name: {{hero.name}}
     </p>
   </div>
 
   <div>
-    The <code>hero.id</code> in the &lt;template [ngIf]&gt;
+    The <code>hero.id</code> in the &lt;ng-template [ngIf]&gt;
     is unaffected by the <span>p-span</span> CSS:
     <p>
-      <template [ngIf]="showId">
+      <ng-template [ngIf]="showId">
         Id: ({{hero.id}})
-      </template>
+      </ng-template>
       Name: {{hero.name}}
     </p>
   </div>
@@ -132,7 +132,7 @@
 <!-- #docregion select-span -->
 <select [(ngModel)]="hero">
   <span *ngFor="let h of heroes">
-    <span *ngIf="showSad || h?.emotion != 'sad'">
+    <span *ngIf="showSad || h?.emotion !== 'sad'">
       <option [ngValue]="h">{{h.name}} ({{h?.emotion}})</option>
     </span>
   </span>
@@ -147,7 +147,7 @@
 <!-- #docregion select-ngcontainer -->
 <select [(ngModel)]="hero">
   <ng-container *ngFor="let h of heroes">
-    <ng-container *ngIf="showSad || h?.emotion != 'sad'">
+    <ng-container *ngIf="showSad || h?.emotion !== 'sad'">
       <option [ngValue]="h">{{h.name}} ({{h?.emotion}})</option>
     </ng-container>
   </ng-container>

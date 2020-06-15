@@ -1,12 +1,12 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {stringify} from '../util';
+import {stringify} from '../util/stringify';
 import {resolveForwardRef} from './forward_ref';
 
 
@@ -24,9 +24,12 @@ import {resolveForwardRef} from './forward_ref';
  * `Key` should not be created directly. {@link ReflectiveInjector} creates keys automatically when
  * resolving
  * providers.
- * @experimental
+ *
+ * @deprecated No replacement
+ * @publicApi
  */
 export class ReflectiveKey {
+  public readonly displayName: string;
   /**
    * Private
    */
@@ -34,12 +37,8 @@ export class ReflectiveKey {
     if (!token) {
       throw new Error('Token must be defined!');
     }
+    this.displayName = stringify(this.token);
   }
-
-  /**
-   * Returns a stringified token.
-   */
-  get displayName(): string { return stringify(this.token); }
 
   /**
    * Retrieves a `Key` for a token.
@@ -51,12 +50,11 @@ export class ReflectiveKey {
   /**
    * @returns the number of keys registered in the system.
    */
-  static get numberOfKeys(): number { return _globalKeyRegistry.numberOfKeys; }
+  static get numberOfKeys(): number {
+    return _globalKeyRegistry.numberOfKeys;
+  }
 }
 
-/**
- * @internal
- */
 export class KeyRegistry {
   private _allKeys = new Map<Object, ReflectiveKey>();
 
@@ -64,7 +62,7 @@ export class KeyRegistry {
     if (token instanceof ReflectiveKey) return token;
 
     if (this._allKeys.has(token)) {
-      return this._allKeys.get(token) !;
+      return this._allKeys.get(token)!;
     }
 
     const newKey = new ReflectiveKey(token, ReflectiveKey.numberOfKeys);
@@ -72,7 +70,9 @@ export class KeyRegistry {
     return newKey;
   }
 
-  get numberOfKeys(): number { return this._allKeys.size; }
+  get numberOfKeys(): number {
+    return this._allKeys.size;
+  }
 }
 
 const _globalKeyRegistry = new KeyRegistry();

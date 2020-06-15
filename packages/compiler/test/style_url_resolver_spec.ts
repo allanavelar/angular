@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -9,11 +9,13 @@
 import {extractStyleUrls, isStyleUrlResolvable} from '@angular/compiler/src/style_url_resolver';
 import {UrlResolver} from '@angular/compiler/src/url_resolver';
 
-export function main() {
+{
   describe('extractStyleUrls', () => {
     let urlResolver: UrlResolver;
 
-    beforeEach(() => { urlResolver = new UrlResolver(); });
+    beforeEach(() => {
+      urlResolver = new UrlResolver();
+    });
 
     it('should not resolve "url()" urls', () => {
       const css = `
@@ -40,11 +42,23 @@ export function main() {
       const css = `
       @import '1.css';
       /*@import '2.css';*/
+      /*
+      @import '3.css';
+      */
       `;
       const styleWithImports = extractStyleUrls(urlResolver, 'http://ng.io', css);
       expect(styleWithImports.style.trim()).toEqual('');
       expect(styleWithImports.styleUrls).toContain('http://ng.io/1.css');
       expect(styleWithImports.styleUrls).not.toContain('http://ng.io/2.css');
+      expect(styleWithImports.styleUrls).not.toContain('http://ng.io/3.css');
+    });
+
+    it('should keep /*# sourceURL... */ and /*# sourceMappingURL... */ comments', () => {
+      const css =
+          `/*regular comment*/\n/*# sourceURL=.... */\n/*# sourceMappingURL=... *//*#sourceMappingURL=... */`;
+      const styleWithSourceMaps = extractStyleUrls(urlResolver, 'http://ng.io', css);
+      expect(styleWithSourceMaps.style.trim())
+          .toEqual('/*# sourceURL=.... */\n/*# sourceMappingURL=... *//*#sourceMappingURL=... */');
     });
 
     it('should extract "@import url()" urls', () => {
@@ -92,23 +106,25 @@ export function main() {
       expect(styleWithImports.style.trim()).toEqual(``);
       expect(styleWithImports.styleUrls).toEqual(['fake_resolved_url']);
     });
-
   });
 
   describe('isStyleUrlResolvable', () => {
-    it('should resolve relative urls',
-       () => { expect(isStyleUrlResolvable('someUrl.css')).toBe(true); });
+    it('should resolve relative urls', () => {
+      expect(isStyleUrlResolvable('someUrl.css')).toBe(true);
+    });
 
-    it('should resolve package: urls',
-       () => { expect(isStyleUrlResolvable('package:someUrl.css')).toBe(true); });
+    it('should resolve package: urls', () => {
+      expect(isStyleUrlResolvable('package:someUrl.css')).toBe(true);
+    });
 
     it('should not resolve empty urls', () => {
-      expect(isStyleUrlResolvable(null !)).toBe(false);
+      expect(isStyleUrlResolvable(null!)).toBe(false);
       expect(isStyleUrlResolvable('')).toBe(false);
     });
 
-    it('should not resolve urls with other schema',
-       () => { expect(isStyleUrlResolvable('http://otherurl')).toBe(false); });
+    it('should not resolve urls with other schema', () => {
+      expect(isStyleUrlResolvable('http://otherurl')).toBe(false);
+    });
 
     it('should not resolve urls with absolute paths', () => {
       expect(isStyleUrlResolvable('/otherurl')).toBe(false);
@@ -118,7 +134,11 @@ export function main() {
 }
 
 class FakeUrlResolver extends UrlResolver {
-  constructor() { super(); }
+  constructor() {
+    super();
+  }
 
-  resolve(baseUrl: string, url: string): string { return 'fake_resolved_url'; }
+  resolve(baseUrl: string, url: string): string {
+    return 'fake_resolved_url';
+  }
 }

@@ -1,15 +1,15 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 import {AsyncTestCompleter, beforeEach, describe, expect, inject, it} from '@angular/core/testing/src/testing_internal';
-import {ResourceLoaderImpl} from '../../src/resource_loader/resource_loader_impl';
+import {ResourceLoaderImpl} from '@angular/platform-browser-dynamic/src/resource_loader/resource_loader_impl';
 
-export function main() {
+if (isBrowser) {
   describe('ResourceLoaderImpl', () => {
     let resourceLoader: ResourceLoaderImpl;
 
@@ -19,10 +19,12 @@ export function main() {
     // will be relative to here, so url200 should look like
     // static_assets/200.html.
     // We currently have no way of detecting this.
-    const url200 = '/base/packages/platform-browser/test/browser/static_assets/200.html';
+    const url200 = '/base/angular/packages/platform-browser/test/browser/static_assets/200.html';
     const url404 = '/bad/path/404.html';
 
-    beforeEach(() => { resourceLoader = new ResourceLoaderImpl(); });
+    beforeEach(() => {
+      resourceLoader = new ResourceLoaderImpl();
+    });
 
     it('should resolve the Promise with the file content on success',
        inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {

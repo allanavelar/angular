@@ -1,19 +1,21 @@
-/* tslint:disable:one-line:check-open-brace*/
-// Examples of provider arrays
-// #docplaster
+/*
+ * A collection of demo components showing different ways to provide services
+ * in @Component metadata
+ */
 import { Component, Inject, Injectable, OnInit } from '@angular/core';
 
-import { APP_CONFIG, AppConfig,
-         HERO_DI_CONFIG }       from './app.config';
+import {
+  APP_CONFIG,
+  AppConfig,
+  HERO_DI_CONFIG } from './app.config';
 
-import { HeroService }          from './heroes/hero.service';
-import { heroServiceProvider }  from './heroes/hero.service.provider';
-import { Logger }               from './logger.service';
-import { UserService }    from './user.service';
+import { HeroService } from './heroes/hero.service';
+import { heroServiceProvider } from './heroes/hero.service.provider';
+import { Logger } from './logger.service';
+import { UserService } from './user.service';
 
-let template = '{{log}}';
+const template = '{{log}}';
 
-//////////////////////////////////////////
 @Component({
   selector: 'provider-1',
   template: template,
@@ -30,6 +32,7 @@ export class Provider1Component {
 }
 
 //////////////////////////////////////////
+
 @Component({
   selector: 'provider-3',
   template: template,
@@ -47,7 +50,7 @@ export class Provider3Component {
 }
 
 //////////////////////////////////////////
-class BetterLogger extends Logger {}
+export class BetterLogger extends Logger {}
 
 @Component({
   selector: 'provider-4',
@@ -66,9 +69,10 @@ export class Provider4Component {
 }
 
 //////////////////////////////////////////
+
 // #docregion EvenBetterLogger
 @Injectable()
-class EvenBetterLogger extends Logger {
+export class EvenBetterLogger extends Logger {
   constructor(private userService: UserService) { super(); }
 
   log(message: string) {
@@ -96,8 +100,10 @@ export class Provider5Component {
 }
 
 //////////////////////////////////////////
-class NewLogger extends Logger {}
-class OldLogger {
+
+export class NewLogger extends Logger {}
+
+export class OldLogger {
   logs: string[] = [];
   log(message: string) {
     throw new Error('Should not call the old logger!');
@@ -117,7 +123,7 @@ class OldLogger {
 export class Provider6aComponent {
   log: string;
   constructor(newLogger: NewLogger, oldLogger: OldLogger) {
-    if (newLogger === oldLogger){
+    if (newLogger === oldLogger) {
       throw new Error('expected the two loggers to be different instances');
     }
     oldLogger.log('Hello OldLogger (but we want NewLogger)');
@@ -140,7 +146,7 @@ export class Provider6aComponent {
 export class Provider6bComponent {
   log: string;
   constructor(newLogger: NewLogger, oldLogger: OldLogger) {
-    if (newLogger !== oldLogger){
+    if (newLogger !== oldLogger) {
       throw new Error('expected the two loggers to be the same instance');
     }
     oldLogger.log('Hello from NewLogger (via aliased OldLogger)');
@@ -149,11 +155,14 @@ export class Provider6bComponent {
 }
 
 //////////////////////////////////////////
+
 // #docregion silent-logger
 // An object in the shape of the logger service
-let silentLogger = {
+function silentLoggerFn() {}
+
+export const SilentLogger = {
   logs: ['Silent logger says "Shhhhh!". Provided via "useValue"'],
-  log: () => {}
+  log: silentLoggerFn
 };
 // #enddocregion silent-logger
 
@@ -162,7 +171,7 @@ let silentLogger = {
   template: template,
   providers:
     // #docregion providers-7
-    [{ provide: Logger, useValue: silentLogger }]
+    [{ provide: Logger, useValue: SilentLogger }]
     // #enddocregion providers-7
 })
 export class Provider7Component {
@@ -172,6 +181,7 @@ export class Provider7Component {
     this.log = logger.logs[0];
   }
 }
+
 /////////////////
 
 @Component({
@@ -189,6 +199,7 @@ export class Provider8Component {
 }
 
 /////////////////
+
 @Component({
   selector: 'provider-9',
   template: template,
@@ -218,6 +229,7 @@ export class Provider9Component implements OnInit {
      this.log = 'APP_CONFIG Application title is ' + this.config.title;
   }
 }
+
 //////////////////////////////////////////
 // Sample providers 1 to 7 illustrate a required logger dependency.
 // Optional logger, can be null
@@ -235,7 +247,7 @@ let some_message = 'Hello from the injected logger';
 export class Provider10Component implements OnInit {
   log: string;
   // #docregion provider-10-ctor
-  constructor(@Optional() private logger: Logger) {
+  constructor(@Optional() private logger?: Logger) {
     if (this.logger) {
       this.logger.log(some_message);
     }
@@ -248,8 +260,9 @@ export class Provider10Component implements OnInit {
 }
 
 /////////////////
+
 @Component({
-  selector: 'my-providers',
+  selector: 'app-providers',
   template: `
   <h2>Provider variations</h2>
   <div id="p1"><provider-1></provider-1></div>

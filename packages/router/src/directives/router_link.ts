@@ -1,37 +1,32 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 import {LocationStrategy} from '@angular/common';
-import {Attribute, Directive, ElementRef, HostBinding, HostListener, Input, OnChanges, OnDestroy, Renderer, isDevMode} from '@angular/core';
-import {Subscription} from 'rxjs/Subscription';
+import {Attribute, Directive, ElementRef, HostBinding, HostListener, Input, isDevMode, OnChanges, OnDestroy, Renderer2} from '@angular/core';
+import {Subscription} from 'rxjs';
 
 import {QueryParamsHandling} from '../config';
-import {NavigationEnd} from '../events';
+import {Event, NavigationEnd} from '../events';
 import {Router} from '../router';
 import {ActivatedRoute} from '../router_state';
 import {UrlTree} from '../url_tree';
 
+
 /**
- * @whatItDoes Lets you link to specific parts of your app.
- *
- * @howToUse
- *
- * Consider the following route configuration:
- * `[{ path: 'user/:name', component: UserCmp }]`
- *
- * When linking to this `user/:name` route, you can write:
- * `<a routerLink='/user/bob'>link to user component</a>`
- *
  * @description
  *
- * The RouterLink directives let you link to specific parts of your app.
+ * Lets you link to specific routes in your app.
  *
- * When the link is static, you can use the directive as follows:
+ * Consider the following route configuration:
+ * `[{ path: 'user/:name', component: UserCmp }]`.
+ * When linking to this `user/:name` route, you use the `RouterLink` directive.
+ *
+ * If the link is static, you can use the directive as follows:
  * `<a routerLink="/user/bob">link to user component</a>`
  *
  * If you use dynamic values to generate the link, you can pass an array of path
@@ -68,16 +63,39 @@ import {UrlTree} from '../url_tree';
  * </a>
  * ```
  *
- * You can tell the directive to how to handle queryParams, available options are:
- *  - 'merge' merge the queryParams into the current queryParams
- *  - 'preserve' prserve the current queryParams
- *  - default / '' use the queryParams only
- *  same options for {@link NavigationExtras.queryParamsHandling}
+ * You can tell the directive how to handle queryParams. Available options are:
+ *  - `'merge'`: merge the queryParams into the current queryParams
+ *  - `'preserve'`: preserve the current queryParams
+ *  - default/`''`: use the queryParams only
+ *
+ * Same options for {@link NavigationExtras#queryParamsHandling
+ * NavigationExtras#queryParamsHandling}.
  *
  * ```
  * <a [routerLink]="['/user/bob']" [queryParams]="{debug: true}" queryParamsHandling="merge">
  *   link to user component
  * </a>
+ * ```
+ *
+ * You can provide a `state` value to be persisted to the browser's History.state
+ * property (See https://developer.mozilla.org/en-US/docs/Web/API/History#Properties). It's
+ * used as follows:
+ *
+ * ```
+ * <a [routerLink]="['/user/bob']" [state]="{tracingId: 123}">
+ *   link to user component
+ * </a>
+ * ```
+ *
+ * And later the value can be read from the router through `router.getCurrentNavigation`.
+ * For example, to capture the `tracingId` above during the `NavigationStart` event:
+ *
+ * ```
+ * // Get NavigationStart events
+ * router.events.pipe(filter(e => e instanceof NavigationStart)).subscribe(e => {
+ *   const navigation = router.getCurrentNavigation();
+ *   tracingService.trace({id: navigation.extras.state.tracingId});
+ * });
  * ```
  *
  * The router link directive always treats the provided input as a delta to the current url.
@@ -87,33 +105,83 @@ import {UrlTree} from '../url_tree';
  * Then the following link `<a [routerLink]="['/user/jim']">Jim</a>` will generate the link
  * `/user/(jim//aux:team)`.
  *
+ * See {@link Router#createUrlTree createUrlTree} for more information.
+ *
  * @ngModule RouterModule
  *
- * See {@link Router.createUrlTree} for more information.
- *
- * @stable
+ * @publicApi
  */
-@Directive({selector: ':not(a)[routerLink]'})
+@Directive({selector: ':not(a):not(area)[routerLink]'})
 export class RouterLink {
-  @Input() queryParams: {[k: string]: any};
-  @Input() fragment: string;
-  @Input() queryParamsHandling: QueryParamsHandling;
-  @Input() preserveFragment: boolean;
-  @Input() skipLocationChange: boolean;
-  @Input() replaceUrl: boolean;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#queryParams NavigationExtras#queryParams}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() queryParams!: {[k: string]: any};
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#fragment NavigationExtras#fragment}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() fragment!: string;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#queryParamsHandling NavigationExtras#queryParamsHandling}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() queryParamsHandling!: QueryParamsHandling;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#preserveFragment NavigationExtras#preserveFragment}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() preserveFragment!: boolean;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#skipLocationChange NavigationExtras#skipLocationChange}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() skipLocationChange!: boolean;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#replaceUrl NavigationExtras#replaceUrl}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() replaceUrl!: boolean;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#state NavigationExtras#state}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  @Input() state?: {[k: string]: any};
   private commands: any[] = [];
-  private preserve: boolean;
+  private preserve!: boolean;
 
   constructor(
       private router: Router, private route: ActivatedRoute,
-      @Attribute('tabindex') tabIndex: string, renderer: Renderer, el: ElementRef) {
+      @Attribute('tabindex') tabIndex: string, renderer: Renderer2, el: ElementRef) {
     if (tabIndex == null) {
-      renderer.setElementAttribute(el.nativeElement, 'tabindex', '0');
+      renderer.setAttribute(el.nativeElement, 'tabindex', '0');
     }
   }
 
+  /**
+   * @param commands An array of commands to pass to {@link Router#createUrlTree
+   *     Router#createUrlTree}.
+   *   - **array**: commands to pass to {@link Router#createUrlTree Router#createUrlTree}.
+   *   - **string**: shorthand for array of commands with just the string, i.e. `['/route']`
+   *   - **null|undefined**: shorthand for an empty array of commands, i.e. `[]`
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
   @Input()
-  set routerLink(commands: any[]|string) {
+  set routerLink(commands: any[]|string|null|undefined) {
     if (commands != null) {
       this.commands = Array.isArray(commands) ? commands : [commands];
     } else {
@@ -122,7 +190,7 @@ export class RouterLink {
   }
 
   /**
-   * @deprecated 4.0.0 use `queryParamsHandling` instead.
+   * @deprecated As of Angular v4.0 use `queryParamsHandling` instead.
    */
   @Input()
   set preserveQueryParams(value: boolean) {
@@ -137,6 +205,7 @@ export class RouterLink {
     const extras = {
       skipLocationChange: attrBoolValue(this.skipLocationChange),
       replaceUrl: attrBoolValue(this.replaceUrl),
+      state: this.state,
     };
     this.router.navigateByUrl(this.urlTree, extras);
     return true;
@@ -155,42 +224,97 @@ export class RouterLink {
 }
 
 /**
- * @whatItDoes Lets you link to specific parts of your app.
+ * @description
  *
- * See {@link RouterLink} for more information.
+ * Lets you link to specific routes in your app.
+ *
+ * See `RouterLink` for more information.
  *
  * @ngModule RouterModule
  *
- * @stable
+ * @publicApi
  */
-@Directive({selector: 'a[routerLink]'})
+@Directive({selector: 'a[routerLink],area[routerLink]'})
 export class RouterLinkWithHref implements OnChanges, OnDestroy {
-  @HostBinding('attr.target') @Input() target: string;
-  @Input() queryParams: {[k: string]: any};
-  @Input() fragment: string;
-  @Input() queryParamsHandling: QueryParamsHandling;
-  @Input() preserveFragment: boolean;
-  @Input() skipLocationChange: boolean;
-  @Input() replaceUrl: boolean;
+  // TODO(issue/24571): remove '!'.
+  @HostBinding('attr.target') @Input() target!: string;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#queryParams NavigationExtras#queryParams}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() queryParams!: {[k: string]: any};
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#fragment NavigationExtras#fragment}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() fragment!: string;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#queryParamsHandling NavigationExtras#queryParamsHandling}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() queryParamsHandling!: QueryParamsHandling;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#preserveFragment NavigationExtras#preserveFragment}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() preserveFragment!: boolean;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#skipLocationChange NavigationExtras#skipLocationChange}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() skipLocationChange!: boolean;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#replaceUrl NavigationExtras#replaceUrl}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input() replaceUrl!: boolean;
+  /**
+   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the `NavigationExtras`.
+   * @see {@link NavigationExtras#state NavigationExtras#state}
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
+  @Input() state?: {[k: string]: any};
   private commands: any[] = [];
   private subscription: Subscription;
-  private preserve: boolean;
+  // TODO(issue/24571): remove '!'.
+  private preserve!: boolean;
 
   // the url displayed on the anchor element.
-  @HostBinding() href: string;
+  // TODO(issue/24571): remove '!'.
+  @HostBinding() href!: string;
 
   constructor(
       private router: Router, private route: ActivatedRoute,
       private locationStrategy: LocationStrategy) {
-    this.subscription = router.events.subscribe(s => {
+    this.subscription = router.events.subscribe((s: Event) => {
       if (s instanceof NavigationEnd) {
         this.updateTargetUrlAndHref();
       }
     });
   }
 
+  /**
+   * @param commands An array of commands to pass to {@link Router#createUrlTree
+   *     Router#createUrlTree}.
+   *   - **array**: commands to pass to {@link Router#createUrlTree Router#createUrlTree}.
+   *   - **string**: shorthand for array of commands with just the string, i.e. `['/route']`
+   *   - **null|undefined**: shorthand for an empty array of commands, i.e. `[]`
+   * @see {@link Router#createUrlTree Router#createUrlTree}
+   */
   @Input()
-  set routerLink(commands: any[]|string) {
+  set routerLink(commands: any[]|string|null|undefined) {
     if (commands != null) {
       this.commands = Array.isArray(commands) ? commands : [commands];
     } else {
@@ -198,6 +322,9 @@ export class RouterLinkWithHref implements OnChanges, OnDestroy {
     }
   }
 
+  /**
+   * @deprecated As of Angular v4.0 use `queryParamsHandling` instead.
+   */
   @Input()
   set preserveQueryParams(value: boolean) {
     if (isDevMode() && <any>console && <any>console.warn) {
@@ -206,12 +333,16 @@ export class RouterLinkWithHref implements OnChanges, OnDestroy {
     this.preserve = value;
   }
 
-  ngOnChanges(changes: {}): any { this.updateTargetUrlAndHref(); }
-  ngOnDestroy(): any { this.subscription.unsubscribe(); }
+  ngOnChanges(changes: {}): any {
+    this.updateTargetUrlAndHref();
+  }
+  ngOnDestroy(): any {
+    this.subscription.unsubscribe();
+  }
 
-  @HostListener('click', ['$event.button', '$event.ctrlKey', '$event.metaKey'])
-  onClick(button: number, ctrlKey: boolean, metaKey: boolean): boolean {
-    if (button !== 0 || ctrlKey || metaKey) {
+  @HostListener('click', ['$event.button', '$event.ctrlKey', '$event.metaKey', '$event.shiftKey'])
+  onClick(button: number, ctrlKey: boolean, metaKey: boolean, shiftKey: boolean): boolean {
+    if (button !== 0 || ctrlKey || metaKey || shiftKey) {
       return true;
     }
 
@@ -222,6 +353,7 @@ export class RouterLinkWithHref implements OnChanges, OnDestroy {
     const extras = {
       skipLocationChange: attrBoolValue(this.skipLocationChange),
       replaceUrl: attrBoolValue(this.replaceUrl),
+      state: this.state
     };
     this.router.navigateByUrl(this.urlTree, extras);
     return false;

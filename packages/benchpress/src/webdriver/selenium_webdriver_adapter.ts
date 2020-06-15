@@ -1,27 +1,37 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {StaticProvider} from '@angular/core';
+
 import {WebDriverAdapter} from '../web_driver_adapter';
+
 
 /**
  * Adapter for the selenium-webdriver.
  */
 export class SeleniumWebDriverAdapter extends WebDriverAdapter {
-  static PROTRACTOR_PROVIDERS = [{
+  static PROTRACTOR_PROVIDERS = <StaticProvider[]>[{
     provide: WebDriverAdapter,
-    useFactory: () => new SeleniumWebDriverAdapter((<any>global).browser)
+    useFactory: () => new SeleniumWebDriverAdapter((<any>global).browser),
+    deps: []
   }];
 
-  constructor(private _driver: any) { super(); }
+  constructor(private _driver: any) {
+    super();
+  }
 
-  waitFor(callback: () => any): Promise<any> { return this._driver.call(callback); }
+  waitFor(callback: () => any): Promise<any> {
+    return this._driver.call(callback);
+  }
 
-  executeScript(script: string): Promise<any> { return this._driver.executeScript(script); }
+  executeScript(script: string): Promise<any> {
+    return this._driver.executeScript(script);
+  }
 
   executeAsyncScript(script: string): Promise<any> {
     return this._driver.executeAsyncScript(script);
@@ -30,7 +40,9 @@ export class SeleniumWebDriverAdapter extends WebDriverAdapter {
   capabilities(): Promise<{[key: string]: any}> {
     return this._driver.getCapabilities().then((capsObject: any) => {
       const localData: {[key: string]: any} = {};
-      capsObject.forEach((value: any, key: string) => { localData[key] = value; });
+      for (const key of Array.from((<Map<string, any>>capsObject).keys())) {
+        localData[key] = capsObject.get(key);
+      }
       return localData;
     });
   }
@@ -52,7 +64,9 @@ class Command {
   private parameters_: {[key: string]: any} = {};
   constructor(private name_: string) {}
 
-  getName() { return this.name_; }
+  getName() {
+    return this.name_;
+  }
 
   setParameter(name: string, value: any) {
     this.parameters_[name] = value;
@@ -64,7 +78,11 @@ class Command {
     return this;
   }
 
-  getParameter(key: string) { return this.parameters_[key]; }
+  getParameter(key: string) {
+    return this.parameters_[key];
+  }
 
-  getParameters() { return this.parameters_; }
+  getParameters() {
+    return this.parameters_;
+  }
 }

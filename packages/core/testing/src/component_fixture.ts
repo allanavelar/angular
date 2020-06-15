@@ -1,18 +1,18 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ChangeDetectorRef, ComponentRef, DebugElement, ElementRef, NgZone, getDebugNode} from '@angular/core';
+import {ChangeDetectorRef, ComponentRef, DebugElement, ElementRef, getDebugNode, NgZone, RendererFactory2} from '@angular/core';
 
 
 /**
  * Fixture for debugging and testing a component.
  *
- * @stable
+ * @publicApi
  */
 export class ComponentFixture<T> {
   /**
@@ -40,6 +40,7 @@ export class ComponentFixture<T> {
    */
   changeDetectorRef: ChangeDetectorRef;
 
+  private _renderer: RendererFactory2|null|undefined;
   private _isStable: boolean = true;
   private _isDestroyed: boolean = false;
   private _resolve: ((result: any) => void)|null = null;
@@ -61,40 +62,50 @@ export class ComponentFixture<T> {
     this.ngZone = ngZone;
 
     if (ngZone) {
-      this._onUnstableSubscription =
-          ngZone.onUnstable.subscribe({next: () => { this._isStable = false; }});
-      this._onMicrotaskEmptySubscription = ngZone.onMicrotaskEmpty.subscribe({
-        next: () => {
-          if (this._autoDetect) {
-            // Do a change detection run with checkNoChanges set to true to check
-            // there are no changes on the second run.
-            this.detectChanges(true);
+      // Create subscriptions outside the NgZone so that the callbacks run oustide
+      // of NgZone.
+      ngZone.runOutsideAngular(() => {
+        this._onUnstableSubscription = ngZone.onUnstable.subscribe({
+          next: () => {
+            this._isStable = false;
           }
-        }
-      });
-      this._onStableSubscription = ngZone.onStable.subscribe({
-        next: () => {
-          this._isStable = true;
-          // Check whether there is a pending whenStable() completer to resolve.
-          if (this._promise !== null) {
-            // If so check whether there are no pending macrotasks before resolving.
-            // Do this check in the next tick so that ngZone gets a chance to update the state of
-            // pending macrotasks.
-            scheduleMicroTask(() => {
-              if (!this.ngZone.hasPendingMacrotasks) {
-                if (this._promise !== null) {
-                  this._resolve !(true);
-                  this._resolve = null;
-                  this._promise = null;
+        });
+        this._onMicrotaskEmptySubscription = ngZone.onMicrotaskEmpty.subscribe({
+          next: () => {
+            if (this._autoDetect) {
+              // Do a change detection run with checkNoChanges set to true to check
+              // there are no changes on the second run.
+              this.detectChanges(true);
+            }
+          }
+        });
+        this._onStableSubscription = ngZone.onStable.subscribe({
+          next: () => {
+            this._isStable = true;
+            // Check whether there is a pending whenStable() completer to resolve.
+            if (this._promise !== null) {
+              // If so check whether there are no pending macrotasks before resolving.
+              // Do this check in the next tick so that ngZone gets a chance to update the state of
+              // pending macrotasks.
+              scheduleMicroTask(() => {
+                if (!ngZone.hasPendingMacrotasks) {
+                  if (this._promise !== null) {
+                    this._resolve!(true);
+                    this._resolve = null;
+                    this._promise = null;
+                  }
                 }
-              }
-            });
+              });
+            }
           }
-        }
-      });
+        });
 
-      this._onErrorSubscription =
-          ngZone.onError.subscribe({next: (error: any) => { throw error; }});
+        this._onErrorSubscription = ngZone.onError.subscribe({
+          next: (error: any) => {
+            throw error;
+          }
+        });
+      });
     }
   }
 
@@ -112,7 +123,9 @@ export class ComponentFixture<T> {
     if (this.ngZone != null) {
       // Run the change detection inside the NgZone so that any async tasks as part of the change
       // detection are captured by the zone and can be waited for in isStable.
-      this.ngZone.run(() => { this._tick(checkNoChanges); });
+      this.ngZone.run(() => {
+        this._tick(checkNoChanges);
+      });
     } else {
       // Running without zone. Just do the change detection.
       this._tick(checkNoChanges);
@@ -122,7 +135,9 @@ export class ComponentFixture<T> {
   /**
    * Do a change detection run to make sure there were no changes.
    */
-  checkNoChanges(): void { this.changeDetectorRef.checkNoChanges(); }
+  checkNoChanges(): void {
+    this.changeDetectorRef.checkNoChanges();
+  }
 
   /**
    * Set whether the fixture should autodetect changes.
@@ -141,7 +156,9 @@ export class ComponentFixture<T> {
    * Return whether the fixture is currently stable or has async tasks that have not been completed
    * yet.
    */
-  isStable(): boolean { return this._isStable && !this.ngZone.hasPendingMacrotasks; }
+  isStable(): boolean {
+    return this._isStable && !this.ngZone!.hasPendingMacrotasks;
+  }
 
   /**
    * Get a promise that resolves when the fixture is stable.
@@ -155,9 +172,30 @@ export class ComponentFixture<T> {
     } else if (this._promise !== null) {
       return this._promise;
     } else {
-      this._promise = new Promise(res => { this._resolve = res; });
+      this._promise = new Promise(res => {
+        this._resolve = res;
+      });
       return this._promise;
     }
+  }
+
+
+  private _getRenderer() {
+    if (this._renderer === undefined) {
+      this._renderer = this.componentRef.injector.get(RendererFactory2, null);
+    }
+    return this._renderer as RendererFactory2 | null;
+  }
+
+  /**
+   * Get a promise that resolves when the ui state is stable following animations.
+   */
+  whenRenderingDone(): Promise<any> {
+    const renderer = this._getRenderer();
+    if (renderer && renderer.whenRenderingDone) {
+      return renderer.whenRenderingDone();
+    }
+    return this.whenStable();
   }
 
   /**

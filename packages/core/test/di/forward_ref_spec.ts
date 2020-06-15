@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -10,7 +10,7 @@ import {Type} from '@angular/core';
 import {forwardRef, resolveForwardRef} from '@angular/core/src/di';
 import {describe, expect, it} from '@angular/core/testing/src/testing_internal';
 
-export function main() {
+{
   describe('forwardRef', function() {
     it('should wrap and unwrap the reference', () => {
       const ref = forwardRef(() => String);

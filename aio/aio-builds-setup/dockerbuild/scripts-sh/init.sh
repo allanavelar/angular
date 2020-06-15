@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e -o pipefail
+set -eu -o pipefail
 
 exec >> /var/log/aio/init.log
 exec 2>&1
@@ -14,5 +14,5 @@ service cron start
 service dnsmasq start
 service nginx start
 service pm2-root start
-aio-upload-server-prod start
+aio-preview-server-prod start
 echo [`date`] - Services started successfully.

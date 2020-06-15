@@ -4,7 +4,7 @@ import { HeroTaxReturn }        from './hero';
 import { HeroTaxReturnService } from './hero-tax-return.service';
 
 @Component({
-  selector: 'hero-tax-return',
+  selector: 'app-hero-tax-return',
   templateUrl: './hero-tax-return.component.html',
   styleUrls: [ './hero-tax-return.component.css' ],
   // #docregion providers
@@ -13,17 +13,19 @@ import { HeroTaxReturnService } from './hero-tax-return.service';
 })
 export class HeroTaxReturnComponent {
   message = '';
+
   @Output() close = new EventEmitter<void>();
 
   get taxReturn(): HeroTaxReturn {
     return this.heroTaxReturnService.taxReturn;
   }
+
   @Input()
   set taxReturn (htr: HeroTaxReturn) {
     this.heroTaxReturnService.taxReturn = htr;
   }
 
-  constructor(private heroTaxReturnService: HeroTaxReturnService ) { }
+  constructor(private heroTaxReturnService: HeroTaxReturnService) { }
 
   onCanceled()  {
     this.flashMessage('Canceled');

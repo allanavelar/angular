@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -8,16 +8,16 @@
 
 import * as html from '../../src/ml_parser/ast';
 import {HtmlParser} from '../../src/ml_parser/html_parser';
-import {ExpansionResult, expandNodes} from '../../src/ml_parser/icu_ast_expander';
+import {expandNodes, ExpansionResult} from '../../src/ml_parser/icu_ast_expander';
 import {ParseError} from '../../src/parse_util';
 
 import {humanizeNodes} from './ast_spec_utils';
 
-export function main() {
+{
   describe('Expander', () => {
     function expand(template: string): ExpansionResult {
       const htmlParser = new HtmlParser();
-      const res = htmlParser.parse(template, 'url', true);
+      const res = htmlParser.parse(template, 'url', {tokenizeExpansionForms: true});
       return expandNodes(res.rootNodes);
     }
 
@@ -36,7 +36,7 @@ export function main() {
     });
 
     it('should handle nested expansion forms', () => {
-      const res = expand(`{messages.length, plural, =0 { {p.gender, select, =m {m}} }}`);
+      const res = expand(`{messages.length, plural, =0 { {p.gender, select, male {m}} }}`);
 
       expect(humanizeNodes(res.nodes)).toEqual([
         [html.Element, 'ng-container', 0],
@@ -46,7 +46,7 @@ export function main() {
         [html.Element, 'ng-container', 2],
         [html.Attribute, '[ngSwitch]', 'p.gender'],
         [html.Element, 'ng-template', 3],
-        [html.Attribute, 'ngSwitchCase', '=m'],
+        [html.Attribute, 'ngSwitchCase', 'male'],
         [html.Text, 'm', 4],
         [html.Text, ' ', 2],
       ]);
@@ -56,28 +56,28 @@ export function main() {
       const nodes = expand(`{messages.length, plural,=0 {<b>bold</b>}}`).nodes;
 
       const container: html.Element = <html.Element>nodes[0];
-      expect(container.sourceSpan !.start.col).toEqual(0);
-      expect(container.sourceSpan !.end.col).toEqual(42);
-      expect(container.startSourceSpan !.start.col).toEqual(0);
-      expect(container.startSourceSpan !.end.col).toEqual(42);
-      expect(container.endSourceSpan !.start.col).toEqual(0);
-      expect(container.endSourceSpan !.end.col).toEqual(42);
+      expect(container.sourceSpan!.start.col).toEqual(0);
+      expect(container.sourceSpan!.end.col).toEqual(42);
+      expect(container.startSourceSpan!.start.col).toEqual(0);
+      expect(container.startSourceSpan!.end.col).toEqual(42);
+      expect(container.endSourceSpan!.start.col).toEqual(0);
+      expect(container.endSourceSpan!.end.col).toEqual(42);
 
       const switchExp = container.attrs[0];
       expect(switchExp.sourceSpan.start.col).toEqual(1);
       expect(switchExp.sourceSpan.end.col).toEqual(16);
 
       const template: html.Element = <html.Element>container.children[0];
-      expect(template.sourceSpan !.start.col).toEqual(25);
-      expect(template.sourceSpan !.end.col).toEqual(41);
+      expect(template.sourceSpan!.start.col).toEqual(25);
+      expect(template.sourceSpan!.end.col).toEqual(41);
 
       const switchCheck = template.attrs[0];
       expect(switchCheck.sourceSpan.start.col).toEqual(25);
       expect(switchCheck.sourceSpan.end.col).toEqual(28);
 
       const b: html.Element = <html.Element>template.children[0];
-      expect(b.sourceSpan !.start.col).toEqual(29);
-      expect(b.endSourceSpan !.end.col).toEqual(40);
+      expect(b.sourceSpan!.start.col).toEqual(29);
+      expect(b.endSourceSpan!.end.col).toEqual(40);
     });
 
     it('should handle other special forms', () => {

@@ -1,15 +1,17 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
+/// <reference types="node" />
+
 // Must be imported first, because Angular decorators throw on load.
 import 'reflect-metadata';
 
-export {InjectionToken, Injector, Provider, ReflectiveInjector} from '@angular/core';
+export {InjectionToken, Injector, Provider, ReflectiveInjector, StaticProvider} from '@angular/core';
 export {Options} from './src/common_options';
 export {MeasureValues} from './src/measure_values';
 export {Metric} from './src/metric';
@@ -22,7 +24,7 @@ export {JsonFileReporter} from './src/reporter/json_file_reporter';
 export {MultiReporter} from './src/reporter/multi_reporter';
 export {Runner} from './src/runner';
 export {SampleDescription} from './src/sample_description';
-export {SampleState, Sampler} from './src/sampler';
+export {Sampler, SampleState} from './src/sampler';
 export {Validator} from './src/validator';
 export {RegressionSlopeValidator} from './src/validator/regression_slope_validator';
 export {SizeValidator} from './src/validator/size_validator';

@@ -1,13 +1,13 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {PRIMARY_OUTLET, ParamMap, convertToParamMap} from './shared';
-import {forEach, shallowEqual} from './utils/collection';
+import {convertToParamMap, ParamMap, Params, PRIMARY_OUTLET} from './shared';
+import {equalArraysOrString, forEach, shallowEqual} from './utils/collection';
 
 export function createEmptyUrlTree() {
   return new UrlTree(new UrlSegmentGroup([], {}), {}, null);
@@ -23,8 +23,8 @@ export function containsTree(container: UrlTree, containee: UrlTree, exact: bool
       containsSegmentGroup(container.root, containee.root);
 }
 
-function equalQueryParams(
-    container: {[k: string]: string}, containee: {[k: string]: string}): boolean {
+function equalQueryParams(container: Params, containee: Params): boolean {
+  // TODO: This does not handle array params correctly.
   return shallowEqual(container, containee);
 }
 
@@ -38,10 +38,10 @@ function equalSegmentGroups(container: UrlSegmentGroup, containee: UrlSegmentGro
   return true;
 }
 
-function containsQueryParams(
-    container: {[k: string]: string}, containee: {[k: string]: string}): boolean {
+function containsQueryParams(container: Params, containee: Params): boolean {
+  // TODO: This does not handle array params correctly.
   return Object.keys(containee).length <= Object.keys(container).length &&
-      Object.keys(containee).every(key => containee[key] === container[key]);
+      Object.keys(containee).every(key => equalArraysOrString(container[key], containee[key]));
 }
 
 function containsSegmentGroup(container: UrlSegmentGroup, containee: UrlSegmentGroup): boolean {
@@ -74,9 +74,16 @@ function containsSegmentGroupHelper(
 }
 
 /**
- * @whatItDoes Represents the parsed URL.
+ * @description
  *
- * @howToUse
+ * Represents the parsed URL.
+ *
+ * Since a router state is a tree, and the URL is nothing but a serialized state, the URL is a
+ * serialized tree.
+ * UrlTree is a data structure that provides a lot of affordances in dealing with URLs
+ *
+ * @usageNotes
+ * ### Example
  *
  * ```
  * @Component({templateUrl:'template.html'})
@@ -94,26 +101,21 @@ function containsSegmentGroupHelper(
  * }
  * ```
  *
- * @description
- *
- * Since a router state is a tree, and the URL is nothing but a serialized state, the URL is a
- * serialized tree.
- * UrlTree is a data structure that provides a lot of affordances in dealing with URLs
- *
- * @stable
+ * @publicApi
  */
 export class UrlTree {
   /** @internal */
-  _queryParamMap: ParamMap;
+  // TODO(issue/24571): remove '!'.
+  _queryParamMap!: ParamMap;
 
   /** @internal */
   constructor(
       /** The root segment group of the URL tree */
       public root: UrlSegmentGroup,
       /** The query params of the URL */
-      public queryParams: {[key: string]: string},
+      public queryParams: Params,
       /** The fragment of the URL */
-      public fragment: string) {}
+      public fragment: string|null) {}
 
   get queryParamMap(): ParamMap {
     if (!this._queryParamMap) {
@@ -123,47 +125,65 @@ export class UrlTree {
   }
 
   /** @docsNotRequired */
-  toString(): string { return DEFAULT_SERIALIZER.serialize(this); }
+  toString(): string {
+    return DEFAULT_SERIALIZER.serialize(this);
+  }
 }
 
 /**
- * @whatItDoes Represents the parsed URL segment group.
+ * @description
  *
- * See {@link UrlTree} for more information.
+ * Represents the parsed URL segment group.
  *
- * @stable
+ * See `UrlTree` for more information.
+ *
+ * @publicApi
  */
 export class UrlSegmentGroup {
   /** @internal */
-  _sourceSegment: UrlSegmentGroup;
+  // TODO(issue/24571): remove '!'.
+  _sourceSegment!: UrlSegmentGroup;
   /** @internal */
-  _segmentIndexShift: number;
+  // TODO(issue/24571): remove '!'.
+  _segmentIndexShift!: number;
   /** The parent node in the url tree */
-  parent: UrlSegmentGroup = null;
+  parent: UrlSegmentGroup|null = null;
 
   constructor(
-      /** The URL segments of this group. See {@link UrlSegment} for more information */
+      /** The URL segments of this group. See `UrlSegment` for more information */
       public segments: UrlSegment[],
       /** The list of children of this group */
       public children: {[key: string]: UrlSegmentGroup}) {
     forEach(children, (v: any, k: any) => v.parent = this);
   }
 
-  /** Wether the segment has child segments */
-  hasChildren(): boolean { return this.numberOfChildren > 0; }
+  /** Whether the segment has child segments */
+  hasChildren(): boolean {
+    return this.numberOfChildren > 0;
+  }
 
   /** Number of child segments */
-  get numberOfChildren(): number { return Object.keys(this.children).length; }
+  get numberOfChildren(): number {
+    return Object.keys(this.children).length;
+  }
 
   /** @docsNotRequired */
-  toString(): string { return serializePaths(this); }
+  toString(): string {
+    return serializePaths(this);
+  }
 }
 
 
 /**
- * @whatItDoes Represents a single URL segment.
+ * @description
  *
- * @howToUse
+ * Represents a single URL segment.
+ *
+ * A UrlSegment is a part of a URL between the two slashes. It contains a path and the matrix
+ * parameters associated with the segment.
+ *
+ * @usageNotes
+ * ### Example
  *
  * ```
  * @Component({templateUrl:'template.html'})
@@ -178,16 +198,12 @@ export class UrlSegmentGroup {
  * }
  * ```
  *
- * @description
- *
- * A UrlSegment is a part of a URL between the two slashes. It contains a path and the matrix
- * parameters associated with the segment.
- *
- * @stable
+ * @publicApi
  */
 export class UrlSegment {
   /** @internal */
-  _parameterMap: ParamMap;
+  // TODO(issue/24571): remove '!'.
+  _parameterMap!: ParamMap;
 
   constructor(
       /** The path part of a URL segment */
@@ -204,7 +220,9 @@ export class UrlSegment {
   }
 
   /** @docsNotRequired */
-  toString(): string { return serializePath(this); }
+  toString(): string {
+    return serializePath(this);
+  }
 }
 
 export function equalSegments(as: UrlSegment[], bs: UrlSegment[]): boolean {
@@ -234,27 +252,29 @@ export function mapChildrenIntoArray<T>(
 
 
 /**
- * @whatItDoes Serializes and deserializes a URL string into a URL tree.
+ * @description
  *
- * @description The url serialization strategy is customizable. You can
+ * Serializes and deserializes a URL string into a URL tree.
+ *
+ * The url serialization strategy is customizable. You can
  * make all URLs case insensitive by providing a custom UrlSerializer.
  *
- * See {@link DefaultUrlSerializer} for an example of a URL serializer.
+ * See `DefaultUrlSerializer` for an example of a URL serializer.
  *
- * @stable
+ * @publicApi
  */
 export abstract class UrlSerializer {
-  /** Parse a url into a {@link UrlTree} */
+  /** Parse a url into a `UrlTree` */
   abstract parse(url: string): UrlTree;
 
-  /** Converts a {@link UrlTree} into a url */
+  /** Converts a `UrlTree` into a url */
   abstract serialize(tree: UrlTree): string;
 }
 
 /**
- * @whatItDoes A default implementation of the {@link UrlSerializer}.
- *
  * @description
+ *
+ * A default implementation of the `UrlSerializer`.
  *
  * Example URLs:
  *
@@ -267,20 +287,21 @@ export abstract class UrlSerializer {
  * colon syntax to specify the outlet, and the ';parameter=value' syntax (e.g., open=true) to
  * specify route specific parameters.
  *
- * @stable
+ * @publicApi
  */
 export class DefaultUrlSerializer implements UrlSerializer {
-  /** Parses a url into a {@link UrlTree} */
+  /** Parses a url into a `UrlTree` */
   parse(url: string): UrlTree {
     const p = new UrlParser(url);
     return new UrlTree(p.parseRootSegment(), p.parseQueryParams(), p.parseFragment());
   }
 
-  /** Converts a {@link UrlTree} into a url */
+  /** Converts a `UrlTree` into a url */
   serialize(tree: UrlTree): string {
     const segment = `/${serializeSegment(tree.root, true)}`;
     const query = serializeQueryParams(tree.queryParams);
-    const fragment = typeof tree.fragment === `string` ? `#${encodeURI(tree.fragment)}` : '';
+    const fragment =
+        typeof tree.fragment === `string` ? `#${encodeUriFragment(tree.fragment!)}` : '';
 
     return `${segment}${query}${fragment}`;
   }
@@ -318,40 +339,89 @@ function serializeSegment(segment: UrlSegmentGroup, root: boolean): string {
       }
 
       return [`${k}:${serializeSegment(v, false)}`];
-
     });
 
     return `${serializePaths(segment)}/(${children.join('//')})`;
   }
 }
 
-export function encode(s: string): string {
-  return encodeURIComponent(s);
+/**
+ * Encodes a URI string with the default encoding. This function will only ever be called from
+ * `encodeUriQuery` or `encodeUriSegment` as it's the base set of encodings to be used. We need
+ * a custom encoding because encodeURIComponent is too aggressive and encodes stuff that doesn't
+ * have to be encoded per https://url.spec.whatwg.org.
+ */
+function encodeUriString(s: string): string {
+  return encodeURIComponent(s)
+      .replace(/%40/g, '@')
+      .replace(/%3A/gi, ':')
+      .replace(/%24/g, '$')
+      .replace(/%2C/gi, ',');
+}
+
+/**
+ * This function should be used to encode both keys and values in a query string key/value. In
+ * the following URL, you need to call encodeUriQuery on "k" and "v":
+ *
+ * http://www.site.org/html;mk=mv?k=v#f
+ */
+export function encodeUriQuery(s: string): string {
+  return encodeUriString(s).replace(/%3B/gi, ';');
+}
+
+/**
+ * This function should be used to encode a URL fragment. In the following URL, you need to call
+ * encodeUriFragment on "f":
+ *
+ * http://www.site.org/html;mk=mv?k=v#f
+ */
+export function encodeUriFragment(s: string): string {
+  return encodeURI(s);
+}
+
+/**
+ * This function should be run on any URI segment as well as the key and value in a key/value
+ * pair for matrix params. In the following URL, you need to call encodeUriSegment on "html",
+ * "mk", and "mv":
+ *
+ * http://www.site.org/html;mk=mv?k=v#f
+ */
+export function encodeUriSegment(s: string): string {
+  return encodeUriString(s).replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/%26/gi, '&');
 }
 
 export function decode(s: string): string {
   return decodeURIComponent(s);
 }
 
-export function serializePath(path: UrlSegment): string {
-  return `${encode(path.path)}${serializeParams(path.parameters)}`;
+// Query keys/values should have the "+" replaced first, as "+" in a query string is " ".
+// decodeURIComponent function will not decode "+" as a space.
+export function decodeQuery(s: string): string {
+  return decode(s.replace(/\+/g, '%20'));
 }
 
-function serializeParams(params: {[key: string]: string}): string {
-  return Object.keys(params).map(key => `;${encode(key)}=${encode(params[key])}`).join('');
+export function serializePath(path: UrlSegment): string {
+  return `${encodeUriSegment(path.path)}${serializeMatrixParams(path.parameters)}`;
+}
+
+function serializeMatrixParams(params: {[key: string]: string}): string {
+  return Object.keys(params)
+      .map(key => `;${encodeUriSegment(key)}=${encodeUriSegment(params[key])}`)
+      .join('');
 }
 
 function serializeQueryParams(params: {[key: string]: any}): string {
   const strParams: string[] = Object.keys(params).map((name) => {
     const value = params[name];
-    return Array.isArray(value) ? value.map(v => `${encode(name)}=${encode(v)}`).join('&') :
-                                  `${encode(name)}=${encode(value)}`;
+    return Array.isArray(value) ?
+        value.map(v => `${encodeUriQuery(name)}=${encodeUriQuery(v)}`).join('&') :
+        `${encodeUriQuery(name)}=${encodeUriQuery(value)}`;
   });
 
-  return strParams.length ? `?${strParams.join("&")}` : '';
+  return strParams.length ? `?${strParams.join('&')}` : '';
 }
 
-const SEGMENT_RE = /^[^\/()?;=&#]+/;
+const SEGMENT_RE = /^[^\/()?;=#]+/;
 function matchSegments(str: string): string {
   const match = str.match(SEGMENT_RE);
   return match ? match[0] : '';
@@ -374,7 +444,9 @@ function matchUrlQueryParamValue(str: string): string {
 class UrlParser {
   private remaining: string;
 
-  constructor(private url: string) { this.remaining = url; }
+  constructor(private url: string) {
+    this.remaining = url;
+  }
 
   parseRootSegment(): UrlSegmentGroup {
     this.consumeOptional('/');
@@ -387,8 +459,8 @@ class UrlParser {
     return new UrlSegmentGroup([], this.parseChildren());
   }
 
-  parseQueryParams(): {[key: string]: any} {
-    const params: {[key: string]: any} = {};
+  parseQueryParams(): Params {
+    const params: Params = {};
     if (this.consumeOptional('?')) {
       do {
         this.parseQueryParam(params);
@@ -397,7 +469,9 @@ class UrlParser {
     return params;
   }
 
-  parseFragment(): string { return this.consumeOptional('#') ? decodeURI(this.remaining) : null; }
+  parseFragment(): string|null {
+    return this.consumeOptional('#') ? decodeURIComponent(this.remaining) : null;
+  }
 
   private parseChildren(): {[outlet: string]: UrlSegmentGroup} {
     if (this.remaining === '') {
@@ -473,7 +547,7 @@ class UrlParser {
   }
 
   // Parse a single query parameter `name[=value]`
-  private parseQueryParam(params: {[key: string]: any}): void {
+  private parseQueryParam(params: Params): void {
     const key = matchQueryParams(this.remaining);
     if (!key) {
       return;
@@ -488,8 +562,8 @@ class UrlParser {
       }
     }
 
-    const decodedKey = decode(key);
-    const decodedVal = decode(value);
+    const decodedKey = decodeQuery(key);
+    const decodedVal = decodeQuery(value);
 
     if (params.hasOwnProperty(decodedKey)) {
       // Append to existing values
@@ -521,7 +595,7 @@ class UrlParser {
         throw new Error(`Cannot parse url '${this.url}'`);
       }
 
-      let outletName: string;
+      let outletName: string = undefined!;
       if (path.indexOf(':') > -1) {
         outletName = path.substr(0, path.indexOf(':'));
         this.capture(outletName);
@@ -539,7 +613,9 @@ class UrlParser {
     return segments;
   }
 
-  private peekStartsWith(str: string): boolean { return this.remaining.startsWith(str); }
+  private peekStartsWith(str: string): boolean {
+    return this.remaining.startsWith(str);
+  }
 
   // Consumes the prefix when it is present and returns whether it has been consumed
   private consumeOptional(str: string): boolean {

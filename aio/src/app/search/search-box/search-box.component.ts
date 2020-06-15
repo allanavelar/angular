@@ -1,13 +1,12 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { SearchService } from 'app/search/search.service';
+import { AfterViewInit, Component, ViewChild, ElementRef, EventEmitter, Output } from '@angular/core';
 import { LocationService } from 'app/shared/location.service';
+import { Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 /**
  * This component provides a text box to type a search query that will be sent to the SearchService.
  *
- * Whatever is typed in this box will be placed in the browser address bar as `?search=...`.
- *
- * When you arrive at a page containing this component, it will retrieve the query from the browser
+ * When you arrive at a page containing this component, it will retrieve the `query` from the browser
  * address bar. If there is a query then this will be made.
  *
  * Focussing on the input box will resend whatever query is there. This can be useful if the search
@@ -17,34 +16,55 @@ import { LocationService } from 'app/shared/location.service';
 @Component({
   selector: 'aio-search-box',
   template: `<input #searchBox
+    type="search"
+    aria-label="search"
     placeholder="Search"
-    (keyup)="onSearch($event.target.value, $event.which)"
-    (focus)="onSearch($event.target.value)"
-    (click)="onSearch($event.target.value)">`
+    (input)="doSearch()"
+    (keyup)="doSearch()"
+    (focus)="doFocus()"
+    (click)="doSearch()">`
 })
-export class SearchBoxComponent implements OnInit {
+export class SearchBoxComponent implements AfterViewInit {
 
-  @ViewChild('searchBox') searchBox: ElementRef;
+  private searchDebounce = 300;
+  private searchSubject = new Subject<string>();
 
-  constructor(private searchService: SearchService, private locationService: LocationService) { }
+  @ViewChild('searchBox', { static: true }) searchBox: ElementRef;
+  // tslint:disable-next-line: no-output-on-prefix
+  @Output() onSearch = this.searchSubject.pipe(distinctUntilChanged(), debounceTime(this.searchDebounce));
+  // tslint:disable-next-line: no-output-on-prefix
+  @Output() onFocus = new EventEmitter<string>();
 
-  ngOnInit() {
-    this.searchService.initWorker('app/search/search-worker.js');
-    this.searchService.loadIndex();
+  constructor(private locationService: LocationService) { }
 
+  /**
+   * When we first show this search box we trigger a search if there is a search query in the URL
+   */
+  ngAfterViewInit() {
     const query = this.locationService.search()['search'];
     if (query) {
-      this.searchBox.nativeElement.value = query;
-      this.onSearch(query);
+      this.query = this.decodeQuery(query);
+      this.doSearch();
     }
   }
 
-  onSearch(query: string, keyCode?: number) {
-    if (keyCode === 27) {
-      // Ignore escape key
-      return;
-    }
-    this.locationService.setSearch('Full Text Search', { search: query });
-    this.searchService.search(query);
+  doSearch() {
+    this.searchSubject.next(this.query);
   }
+
+  doFocus() {
+    this.onFocus.emit(this.query);
+  }
+
+  focus() {
+    this.searchBox.nativeElement.focus();
+  }
+
+  private decodeQuery(query: string): string {
+    // `decodeURIComponent` does not handle `+` for spaces, replace via RexEx.
+    return query.replace(/\+/g, ' ');
+  }
+
+  private get query() { return this.searchBox.nativeElement.value; }
+  private set query(value: string) { this.searchBox.nativeElement.value = value; }
 }

@@ -1,48 +1,35 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
+
 const xhr2: any = require('xhr2');
 
-import {Injectable, Provider} from '@angular/core';
-import {BrowserXhr, Connection, ConnectionBackend, Http, ReadyState, Request, RequestOptions, Response, XHRBackend, XSRFStrategy} from '@angular/http';
+import {Injectable, Injector, Provider} from '@angular/core';
+import {PlatformLocation} from '@angular/common';
+import {HttpEvent, HttpRequest, HttpHandler, HttpBackend, XhrFactory, ɵHttpInterceptingHandler as HttpInterceptingHandler} from '@angular/common/http';
+import {Observable, Observer, Subscription} from 'rxjs';
 
-import {Observable} from 'rxjs/Observable';
-import {Observer} from 'rxjs/Observer';
-import {Subscription} from 'rxjs/Subscription';
-
+// @see https://www.w3.org/Protocols/HTTP/1.1/draft-ietf-http-v11-spec-01#URI-syntax
 const isAbsoluteUrl = /^[a-zA-Z\-\+.]+:\/\//;
 
-function validateRequestUrl(url: string): void {
-  if (!isAbsoluteUrl.test(url)) {
-    throw new Error(`URLs requested via Http on the server must be absolute. URL: ${url}`);
+@Injectable()
+export class ServerXhr implements XhrFactory {
+  build(): XMLHttpRequest {
+    return new xhr2.XMLHttpRequest();
   }
 }
 
-@Injectable()
-export class ServerXhr implements BrowserXhr {
-  build(): XMLHttpRequest { return new xhr2.XMLHttpRequest(); }
-}
-
-@Injectable()
-export class ServerXsrfStrategy implements XSRFStrategy {
-  configureRequest(req: Request): void {}
-}
-
-export class ZoneMacroTaskConnection implements Connection {
-  response: Observable<Response>;
-  lastConnection: Connection;
-
-  constructor(public request: Request, backend: XHRBackend) {
-    validateRequestUrl(request.url);
-    this.response = new Observable((observer: Observer<Response>) => {
-      let task: Task = null;
+export abstract class ZoneMacroTaskWrapper<S, R> {
+  wrap(request: S): Observable<R> {
+    return new Observable((observer: Observer<R>) => {
+      let task: Task = null!;
       let scheduled: boolean = false;
-      let sub: Subscription = null;
+      let sub: Subscription|null = null;
       let savedResult: any = null;
       let savedError: any = null;
 
@@ -50,25 +37,26 @@ export class ZoneMacroTaskConnection implements Connection {
         task = _task;
         scheduled = true;
 
-        this.lastConnection = backend.createConnection(request);
-        sub = (this.lastConnection.response as Observable<Response>)
-                  .subscribe(
-                      res => savedResult = res,
-                      err => {
-                        if (!scheduled) {
-                          throw new Error('invoke twice');
-                        }
-                        savedError = err;
-                        scheduled = false;
-                        task.invoke();
-                      },
-                      () => {
-                        if (!scheduled) {
-                          throw new Error('invoke twice');
-                        }
-                        scheduled = false;
-                        task.invoke();
-                      });
+        const delegate = this.delegate(request);
+        sub = delegate.subscribe(
+            res => savedResult = res,
+            err => {
+              if (!scheduled) {
+                throw new Error(
+                    'An http observable was completed twice. This shouldn\'t happen, please file a bug.');
+              }
+              savedError = err;
+              scheduled = false;
+              task.invoke();
+            },
+            () => {
+              if (!scheduled) {
+                throw new Error(
+                    'An http observable was completed twice. This shouldn\'t happen, please file a bug.');
+              }
+              scheduled = false;
+              task.invoke();
+            });
       };
 
       const cancelTask = (_task: Task) => {
@@ -91,11 +79,11 @@ export class ZoneMacroTaskConnection implements Connection {
         }
       };
 
-      // MockBackend is currently synchronous, which means that if scheduleTask is by
+      // MockBackend for Http is synchronous, which means that if scheduleTask is by
       // scheduleMacroTask, the request will hit MockBackend and the response will be
       // sent, causing task.invoke() to be called.
       const _task = Zone.current.scheduleMacroTask(
-          'ZoneMacroTaskConnection.subscribe', onComplete, {}, () => null, cancelTask);
+          'ZoneMacroTaskWrapper.subscribe', onComplete, {}, () => null, cancelTask);
       scheduleTask(_task);
 
       return () => {
@@ -111,26 +99,42 @@ export class ZoneMacroTaskConnection implements Connection {
     });
   }
 
-  get readyState(): ReadyState {
-    return !!this.lastConnection ? this.lastConnection.readyState : ReadyState.Unsent;
+  protected abstract delegate(request: S): Observable<R>;
+}
+
+export class ZoneClientBackend extends
+    ZoneMacroTaskWrapper<HttpRequest<any>, HttpEvent<any>> implements HttpBackend {
+  constructor(private backend: HttpBackend, private platformLocation: PlatformLocation) {
+    super();
+  }
+
+  handle(request: HttpRequest<any>): Observable<HttpEvent<any>> {
+    const {href, protocol, hostname} = this.platformLocation;
+    if (!isAbsoluteUrl.test(request.url) && href !== '/') {
+      const baseHref = this.platformLocation.getBaseHrefFromDOM() || href;
+      const urlPrefix = `${protocol}//${hostname}`;
+      const baseUrl = new URL(baseHref, urlPrefix);
+      const url = new URL(request.url, baseUrl);
+      return this.wrap(request.clone({url: url.toString()}));
+    }
+    return this.wrap(request);
+  }
+
+  protected delegate(request: HttpRequest<any>): Observable<HttpEvent<any>> {
+    return this.backend.handle(request);
   }
 }
 
-export class ZoneMacroTaskBackend implements ConnectionBackend {
-  constructor(private backend: XHRBackend) {}
-
-  createConnection(request: any): ZoneMacroTaskConnection {
-    return new ZoneMacroTaskConnection(request, this.backend);
-  }
-}
-
-export function httpFactory(xhrBackend: XHRBackend, options: RequestOptions) {
-  const macroBackend = new ZoneMacroTaskBackend(xhrBackend);
-  return new Http(macroBackend, options);
+export function zoneWrappedInterceptingHandler(
+    backend: HttpBackend, injector: Injector, platformLocation: PlatformLocation) {
+  const realBackend: HttpBackend = new HttpInterceptingHandler(backend, injector);
+  return new ZoneClientBackend(realBackend, platformLocation);
 }
 
 export const SERVER_HTTP_PROVIDERS: Provider[] = [
-  {provide: Http, useFactory: httpFactory, deps: [XHRBackend, RequestOptions]},
-  {provide: BrowserXhr, useClass: ServerXhr},
-  {provide: XSRFStrategy, useClass: ServerXsrfStrategy},
+  {provide: XhrFactory, useClass: ServerXhr}, {
+    provide: HttpHandler,
+    useFactory: zoneWrappedInterceptingHandler,
+    deps: [HttpBackend, Injector, PlatformLocation]
+  }
 ];

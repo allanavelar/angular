@@ -1,16 +1,49 @@
 code-example,
-code-tabs md-tab-body {
-    background-color: $backgroundgray;
+code-tabs {
+    clear: both;
+    display: block;
+
+    ol {
+      list-style: decimal;
+    }
+}
+
+code-example {
+
+  &:not(.no-box) {
+    background-color: rgba($backgroundgray, 0.2);
     border: 0.5px solid $lightgray;
     border-radius: 5px;
     color: $darkgray;
-    display: block;
-    padding: 8px 16px;
     margin: 16px auto;
+  }
 
-    code {
-      overflow: auto;
+  &.no-box {
+    pre {
+      margin: 0;
     }
+    code {
+      background-color: transparent;
+    }
+  }
+
+  code {
+    overflow: auto;
+  }
+}
+
+code-example, code-tabs {
+  .mat-card {
+    padding: 0;
+    border-radius: 5px;
+  }
+  code {
+    overflow: auto;
+  }
+}
+
+code-tabs {
+  margin: 16px 0;
 }
 
 // TERMINAL / SHELL TEXT STYLES
@@ -20,22 +53,23 @@ code-example.code-shell, code-example[language=sh], code-example[language=bash] 
 }
 
 code-example header {
-  background-color: $mediumgray;
-  border: 0.5px solid $mediumgray;
+  background-color: $accentblue;
   border-radius: 5px 5px 0 0;
   color: $offwhite;
-  font-size: 16px;
-  padding: 10px;
-  margin: -10px;
+  @include font-size(16);
+  padding: 8px 16px;
 }
 
-code-example.is-anti-pattern header {
+code-example.avoid header,
+code-example.avoidFile header {
   border: 2px solid $anti-pattern;
   background: $anti-pattern;
 }
 
-code-example.is-anti-pattern,
-code-tabs.is-anti-pattern md-tab-body {
+code-example.avoid,
+code-example.avoidFile,
+code-tabs.avoid mat-tab-body,
+code-tabs.avoidFile mat-tab-body {
   border: 0.5px solid $anti-pattern;
 }
 
@@ -43,7 +77,7 @@ code-tabs div .mat-tab-body-content {
   height: auto;
 }
 
-code-tabs .mat-tab-body-wrapper md-tab-body .mat-tab-body {
+code-tabs .mat-tab-body-wrapper mat-tab-body .mat-tab-body {
   overflow-y: hidden;
 }
 
@@ -53,43 +87,34 @@ code-tabs mat-tab-body-content .fadeIn {
 
 aio-code pre {
     display: flex;
-    padding: 0 48px 0 0;
+    min-height: 32px;
+    margin: 16px 24px;
     white-space: pre-wrap;
+    align-items: center;
 
-    code span, code ol li {
-      line-height: 18px;
+    code span {
+      @include line-height(24);
     }
 }
 
-code ol {
-  font-family: $main-font;
-  color: $lightgray;
-
-  li {
-    margin: 0;
-    font-family: $code-font;
-    font-size: 90%;
-  }
-}
 
 .code-missing {
   color: $darkred;
 }
 
-.prettyprint {
-  position: relative;
-}
 
 .copy-button {
-  color: $lightgray;
+  position: absolute;
+  top: -7px;
+  right: -19px;
+  padding: 0;
+
+  color: $blue-grey-200;
   background-color: transparent;
   border: none;
+  cursor: pointer;
   &:hover {
     color: $mediumgray;
-  }
-  @media (max-width: 480px) {
-    top: 0;
-    bottom: 0;
   }
 }
 
@@ -100,116 +125,86 @@ code ol {
   }
 }
 
-.code-tab-group div.mat-tab-body-content {
-  height: auto;
+.code-tab-group .mat-tab-label {
+  &:hover {
+    background: rgba(black, 0.04);
+  }
+  white-space: nowrap;
 }
 
-$blue-grey-50: #ECEFF1;
-$blue-grey-100: #CFD8DC;
-$blue-grey-200: #B0BEC5;
-$blue-grey-300: #90A4AE;
-$blue-grey-400: #78909C;
-$blue-grey-500: #607D8B;
-$blue-grey-600: #546E7A;
-$blue-grey-700: #455A64;
-$blue-grey-800: #37474F;
-$blue-grey-900: #263238;
+.code-tab-group .mat-tab-body-content {
+  height: auto;
+  transform: none;
+}
 
-$white: #FFFFFF;
 
-/* SCREEN COLORS */
+[role="tabpanel"] {
+    transition: none;
+}
 
-  .pnk,
-  .blk {
-    border-radius: 4px;
-    padding: 2px 4px;
+.sidenav-content code a {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/* PRETTY PRINTING STYLES for prettify.js. */
+
+.prettyprint {
+  position: relative;
+}
+
+/* Specify class=linenums on a pre to get line numbering */
+ol.linenums {
+  margin: 0;
+  font-family: $main-font;
+  color: #B3B6B7;
+
+  li {
+    margin: 0;
+    font-family: $code-font;
+    font-size: 90%;
+    @include line-height(24);
   }
-  .pnk {
-    background: $blue-grey-50;
-    color: $blue-grey-900;
-  }
-  .blk {
-    background: $blue-grey-900;
-  }
-  .otl {
-    outline: 1px solid rgba($blue-grey-700, .56);
-  }
-  .kwd {
-    color: $darkgray;
-  }
-  .typ,
-  .tag {
-    color: $darkred;
-  }
-  .str,
-  .atv {
-    color: $blue;
-  }
-  .atn {
-    color: $blue;
-  }
-  .com {
-    color: $mediumgray;
-  }
-  .lit {
-    color: $blue;
-  }
-  .pun {
-    color: $blue-grey-700;
-  }
-  .pln {
-    color: $green-800;
-  }
-  .dec {
-    color: $blue;
-  }
+}
+
+/* The following class|color styles are derived from https://github.com/google/code-prettify/blob/master/src/prettify.css*/
+
+/* SPAN elements with the classes below are added by prettyprint. */
+.pln { color: #000 }  /* plain text */
+
+@media screen {
+  .str { color: #800 }  /* string content */
+  .kwd { color: #00f }  /* a keyword */
+  .com { color: #060 }  /* a comment */
+  .typ { color: red }  /* a type name */
+  .lit { color: #08c }  /* a literal value */
+  /* punctuation, lisp open bracket, lisp close bracket */
+  .pun, .opn, .clo { color: #660 }
+  .tag { color: #008 }  /* a markup tag name */
+  .atn { color: #606 }  /* a markup attribute name */
+  .atv { color: #800 }  /* a markup attribute value */
+  .dec, .var { color: #606 }  /* a declaration; a variable name */
+  .fun { color: red }  /* a function name */
+}
+
+/* Use higher contrast and text-weight for printable form. */
+@media print, projection {
+  .str { color: #060 }
+  .kwd { color: #006; font-weight: bold }
+  .com { color: #600; font-style: italic }
+  .typ { color: #404; font-weight: bold }
+  .lit { color: #044 }
+  .pun, .opn, .clo { color: #440 }
+  .tag { color: #006; font-weight: bold }
+  .atn { color: #404 }
+  .atv { color: #060 }
+}
 
 /* SHELL / TERMINAL CODE BLOCKS */
 
 code-example.code-shell, code-example[language=sh], code-example[language=bash] {
-  & .pnk, .blk,.pln, .otl, .kwd, .typ, .tag, .str, .atv, .atn, .com, .lit, .pun, .dec {
+  .pnk, .blk, .pln, .otl, .kwd, .typ, .tag, .str, .atv, .atn, .com, .lit, .pun, .dec {
     color: $codegreen;
   }
 }
-
-/* PRINT COLORS */
-
-
-  @media print {
-    border: none;
-    box-shadow: none;
-
-    ol {
-      background: $white;
-    }
-
-    .kwd {
-      color: $darkgray;
-    }
-    .typ,
-    .tag {
-      color: $darkred;
-    }
-    .str,
-    .atv {
-      color: $blue;
-    }
-    .atn {
-      color: $blue;
-    }
-    .com {
-      color: $mediumgray;
-    }
-    .lit {
-      color: $blue;
-    }
-    .pun {
-      color: $blue-grey-700;
-    }
-    .pln {
-      color: $green-800;
-    }
-    .dec {
-      color: $blue;
-    }
-  }

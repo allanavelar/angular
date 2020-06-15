@@ -1,16 +1,21 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Inject, Injectable} from '@angular/core';
+import {DOCUMENT, ɵgetDOM as getDOM} from '@angular/common';
+import {Inject, Injectable, ɵɵinject} from '@angular/core';
 
-import {getDOM} from '../dom/dom_adapter';
-import {DOCUMENT} from '../dom/dom_tokens';
 
+/**
+ * Factory to create Title service.
+ */
+export function createTitle() {
+  return new Title(ɵɵinject(DOCUMENT));
+}
 
 /**
  * A service that can be used to get and set the title of a current HTML document.
@@ -20,20 +25,23 @@ import {DOCUMENT} from '../dom/dom_tokens';
  * (representing the `<title>` tag). Instead, this service can be used to set and get the current
  * title value.
  *
- * @experimental
+ * @publicApi
  */
-@Injectable()
+@Injectable({providedIn: 'root', useFactory: createTitle, deps: []})
 export class Title {
   constructor(@Inject(DOCUMENT) private _doc: any) {}
   /**
    * Get the title of the current HTML document.
-   * @returns {string}
    */
-  getTitle(): string { return getDOM().getTitle(this._doc); }
+  getTitle(): string {
+    return this._doc.title;
+  }
 
   /**
    * Set the title of the current HTML document.
    * @param newTitle
    */
-  setTitle(newTitle: string) { getDOM().setTitle(this._doc, newTitle); }
+  setTitle(newTitle: string) {
+    this._doc.title = newTitle || '';
+  }
 }

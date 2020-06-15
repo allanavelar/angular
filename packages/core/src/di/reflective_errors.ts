@@ -1,15 +1,14 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {wrappedError} from '../error_handler';
-import {ERROR_ORIGINAL_ERROR, getOriginalError} from '../errors';
-import {Type} from '../type';
-import {stringify} from '../util';
+import {Type} from '../interface/type';
+import {ERROR_ORIGINAL_ERROR, wrappedError} from '../util/errors';
+import {stringify} from '../util/stringify';
 
 import {ReflectiveInjector} from './reflective_injector';
 import {ReflectiveKey} from './reflective_key';
@@ -39,20 +38,22 @@ function constructResolvingPath(keys: any[]): string {
 export interface InjectionError extends Error {
   keys: ReflectiveKey[];
   injectors: ReflectiveInjector[];
-  constructResolvingMessage: (this: InjectionError) => string;
+  constructResolvingMessage: (keys: ReflectiveKey[]) => string;
   addKey(injector: ReflectiveInjector, key: ReflectiveKey): void;
 }
 
 function injectionError(
     injector: ReflectiveInjector, key: ReflectiveKey,
-    constructResolvingMessage: (this: InjectionError) => string,
+    constructResolvingMessage: (keys: ReflectiveKey[]) => string,
     originalError?: Error): InjectionError {
-  const error = (originalError ? wrappedError('', originalError) : Error()) as InjectionError;
+  const keys = [key];
+  const errMsg = constructResolvingMessage(keys);
+  const error =
+      (originalError ? wrappedError(errMsg, originalError) : Error(errMsg)) as InjectionError;
   error.addKey = addKey;
-  error.keys = [key];
+  error.keys = keys;
   error.injectors = [injector];
   error.constructResolvingMessage = constructResolvingMessage;
-  error.message = error.constructResolvingMessage();
   (error as any)[ERROR_ORIGINAL_ERROR] = originalError;
   return error;
 }
@@ -60,14 +61,16 @@ function injectionError(
 function addKey(this: InjectionError, injector: ReflectiveInjector, key: ReflectiveKey): void {
   this.injectors.push(injector);
   this.keys.push(key);
-  this.message = this.constructResolvingMessage();
+  // Note: This updated message won't be reflected in the `.stack` property
+  this.message = this.constructResolvingMessage(this.keys);
 }
 
 /**
  * Thrown when trying to retrieve a dependency by key from {@link Injector}, but the
  * {@link Injector} does not have a {@link Provider} for the given key.
  *
- * ### Example ([live demo](http://plnkr.co/edit/vq8D3FRB9aGbnWJqtEPE?p=preview))
+ * @usageNotes
+ * ### Example
  *
  * ```typescript
  * class A {
@@ -78,16 +81,17 @@ function addKey(this: InjectionError, injector: ReflectiveInjector, key: Reflect
  * ```
  */
 export function noProviderError(injector: ReflectiveInjector, key: ReflectiveKey): InjectionError {
-  return injectionError(injector, key, function(this: InjectionError) {
-    const first = stringify(this.keys[0].token);
-    return `No provider for ${first}!${constructResolvingPath(this.keys)}`;
+  return injectionError(injector, key, function(keys: ReflectiveKey[]) {
+    const first = stringify(keys[0].token);
+    return `No provider for ${first}!${constructResolvingPath(keys)}`;
   });
 }
 
 /**
  * Thrown when dependencies form a cycle.
  *
- * ### Example ([live demo](http://plnkr.co/edit/wYQdNos0Tzql3ei1EV9j?p=info))
+ * @usageNotes
+ * ### Example
  *
  * ```typescript
  * var injector = Injector.resolveAndCreate([
@@ -102,8 +106,8 @@ export function noProviderError(injector: ReflectiveInjector, key: ReflectiveKey
  */
 export function cyclicDependencyError(
     injector: ReflectiveInjector, key: ReflectiveKey): InjectionError {
-  return injectionError(injector, key, function(this: InjectionError) {
-    return `Cannot instantiate cyclic dependency!${constructResolvingPath(this.keys)}`;
+  return injectionError(injector, key, function(keys: ReflectiveKey[]) {
+    return `Cannot instantiate cyclic dependency!${constructResolvingPath(keys)}`;
   });
 }
 
@@ -113,7 +117,8 @@ export function cyclicDependencyError(
  * The `InstantiationError` class contains the original error plus the dependency graph which caused
  * this object to be instantiated.
  *
- * ### Example ([live demo](http://plnkr.co/edit/7aWYdcqTQsP0eNqEdUAf?p=preview))
+ * @usageNotes
+ * ### Example
  *
  * ```typescript
  * class A {
@@ -136,9 +141,10 @@ export function cyclicDependencyError(
 export function instantiationError(
     injector: ReflectiveInjector, originalException: any, originalStack: any,
     key: ReflectiveKey): InjectionError {
-  return injectionError(injector, key, function(this: InjectionError) {
-    const first = stringify(this.keys[0].token);
-    return `${getOriginalError(this).message}: Error during instantiation of ${first}!${constructResolvingPath(this.keys)}.`;
+  return injectionError(injector, key, function(keys: ReflectiveKey[]) {
+    const first = stringify(keys[0].token);
+    return `${originalException.message}: Error during instantiation of ${first}!${
+        constructResolvingPath(keys)}.`;
   }, originalException);
 }
 
@@ -146,7 +152,8 @@ export function instantiationError(
  * Thrown when an object other then {@link Provider} (or `Type`) is passed to {@link Injector}
  * creation.
  *
- * ### Example ([live demo](http://plnkr.co/edit/YatCFbPAMCL0JSSQ4mvH?p=preview))
+ * @usageNotes
+ * ### Example
  *
  * ```typescript
  * expect(() => Injector.resolveAndCreate(["not a type"])).toThrowError();
@@ -163,7 +170,8 @@ export function invalidProviderError(provider: any) {
  * Lack of annotation information prevents the {@link Injector} from determining which dependencies
  * need to be injected into the constructor.
  *
- * ### Example ([live demo](http://plnkr.co/edit/rHnZtlNS7vJOPQ6pcVkm?p=preview))
+ * @usageNotes
+ * ### Example
  *
  * ```typescript
  * class A {
@@ -184,9 +192,9 @@ export function invalidProviderError(provider: any) {
  *
  * expect(() => Injector.resolveAndCreate([A,B])).toThrowError();
  * ```
- * @stable
+ *
  */
-export function noAnnotationError(typeOrFunc: Type<any>| Function, params: any[][]): Error {
+export function noAnnotationError(typeOrFunc: Type<any>|Function, params: any[][]): Error {
   const signature: string[] = [];
   for (let i = 0, ii = params.length; i < ii; i++) {
     const parameter = params[i];
@@ -206,7 +214,8 @@ export function noAnnotationError(typeOrFunc: Type<any>| Function, params: any[]
 /**
  * Thrown when getting an object by index.
  *
- * ### Example ([live demo](http://plnkr.co/edit/bRs0SX2OTQiJzqvjgl8P?p=preview))
+ * @usageNotes
+ * ### Example
  *
  * ```typescript
  * class A {}
@@ -215,7 +224,7 @@ export function noAnnotationError(typeOrFunc: Type<any>| Function, params: any[]
  *
  * expect(() => injector.getAt(100)).toThrowError();
  * ```
- * @stable
+ *
  */
 export function outOfBoundsError(index: number) {
   return Error(`Index ${index} is out-of-bounds.`);
@@ -225,6 +234,7 @@ export function outOfBoundsError(index: number) {
 /**
  * Thrown when a multi provider and a regular provider are bound to the same token.
  *
+ * @usageNotes
  * ### Example
  *
  * ```typescript

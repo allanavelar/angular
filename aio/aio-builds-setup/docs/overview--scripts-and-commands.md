@@ -8,22 +8,20 @@ This is an overview of the available scripts and commands.
 The scripts are located inside `<aio-builds-setup-dir>/scripts/`. The following scripts are
 available:
 
-- `build.sh`:
+- `create-image.sh`:
   Can be used for creating a preconfigured docker image.
   See [here](vm-setup--create-docker-image.md) for more info.
 
-- `test.sh`
+- `test.sh`:
   Can be used for running the tests for `<aio-builds-setup-dir>/dockerbuild/scripts-js/`. This is
   useful for CI integration. See [here](misc--integrate-with-ci.md) for more info.
 
-- `travis-preverify-pr.sh`
-  Can be used for "preverifying" a PR before uploading the artifacts to the server. It checks that
-  the author of the PR a member of one of the specified GitHub teams and therefore allowed to upload
-  build artifacts. This is useful for CI integration. See [here](misc--integrate-with-ci.md) for
-  more info.
+- `update-preview-server.sh`:
+  Can be used for updating the docker container (and image) based on the latest changes checked out
+  from a git repository. See [here](vm-setup--update-docker-container.md) for more info.
 
 
-## Commands
+## Production Commands
 The following commands are available globally from inside the docker container. They are either used
 by the container to perform its various operations or can be used ad-hoc, mainly for testing
 purposes. Each command is backed by a corresponding script inside
@@ -42,14 +40,27 @@ purposes. Each command is backed by a corresponding script inside
   Initializes the container (mainly by starting the necessary services).
   _It is run (by default) when starting the container._
 
-- `aio-upload-server-prod`:
-  Spins up a Node.js upload-server instance.
+- `aio-preview-server-prod`:
+  Spins up a Node.js preview-server instance.
   _It is used in `aio-init` (see above) during initialization._
 
-- `aio-upload-server-test`:
-  Spins up a Node.js upload-server instance for tests.
+
+## Developer Commands
+
+- `aio-preview-server-test`:
+  Spins up a Node.js preview-server instance for tests.
   _It is used in `aio-verify-setup` (see below) for running tests._
 
 - `aio-verify-setup`:
   Runs a suite of e2e-like tests, mainly verifying the correct (inter)operation of nginx and the
-  Node.js upload-server.
+  Node.js preview-server.
+
+- `aio-verify-setup-and-log`:
+  Runs the `aio-verify-setup` command but also then dumps the logs from the preview server, which
+  gives additional useful debugging information. See the [debugging docs](misc--debug-docker-container.md)
+  for more info.
+
+- `aio-dev-mode`:
+  Links external source files (from the Docker host) to interal source files (in the Docker
+  container). This makes it easier to use an IDE to edit files in the host that are then
+  tested in the container. See the [debugging docs](misc--debug-docker-container.md) for more info.

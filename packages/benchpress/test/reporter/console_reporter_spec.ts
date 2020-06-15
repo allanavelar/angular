@@ -1,27 +1,27 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Provider} from '@angular/core';
+import {StaticProvider} from '@angular/core';
 import {describe, expect, it} from '@angular/core/testing/src/testing_internal';
 
-import {ConsoleReporter, MeasureValues, ReflectiveInjector, SampleDescription} from '../../index';
+import {ConsoleReporter, Injector, MeasureValues, SampleDescription} from '../../index';
 
-export function main() {
+{
   describe('console reporter', () => {
     let reporter: ConsoleReporter;
     let log: string[];
 
     function createReporter(
         {columnWidth = null, sampleId = null, descriptions = null, metrics = null}: {
-          columnWidth?: number,
-          sampleId?: string,
-          descriptions?: {[key: string]: any}[],
-          metrics?: {[key: string]: any}
+          columnWidth?: number|null,
+          sampleId?: string|null,
+          descriptions?: {[key: string]: any}[]|null,
+          metrics?: {[key: string]: any}|null
         }) {
       log = [];
       if (!descriptions) {
@@ -30,17 +30,17 @@ export function main() {
       if (sampleId == null) {
         sampleId = 'null';
       }
-      const providers: Provider[] = [
+      const providers: StaticProvider[] = [
         ConsoleReporter.PROVIDERS, {
           provide: SampleDescription,
-          useValue: new SampleDescription(sampleId, descriptions, metrics)
+          useValue: new SampleDescription(sampleId, descriptions, metrics!)
         },
         {provide: ConsoleReporter.PRINT, useValue: (line: string) => log.push(line)}
       ];
       if (columnWidth != null) {
         providers.push({provide: ConsoleReporter.COLUMN_WIDTH, useValue: columnWidth});
       }
-      reporter = ReflectiveInjector.resolveAndCreate(providers).get(ConsoleReporter);
+      reporter = Injector.create(providers).get(ConsoleReporter);
     }
 
     it('should print the sample id, description and table header', () => {
@@ -84,7 +84,6 @@ export function main() {
       reporter.reportSample([], [mv(0, 0, {'a': 3, 'b': 0}), mv(1, 1, {'a': 5, 'b': 0})]);
       expect(log).toEqual(['======== | ========', '4.00+-25% |     0.00']);
     });
-
   });
 }
 

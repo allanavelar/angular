@@ -1,18 +1,13 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Inject, Injectable, Sanitizer, SecurityContext} from '@angular/core';
-
-import {DOCUMENT} from '../dom/dom_tokens';
-
-import {sanitizeHtml} from './html_sanitizer';
-import {sanitizeStyle} from './style_sanitizer';
-import {sanitizeUrl} from './url_sanitizer';
+import {DOCUMENT} from '@angular/common';
+import {forwardRef, Inject, Injectable, Injector, Sanitizer, SecurityContext, ɵ_sanitizeHtml as _sanitizeHtml, ɵ_sanitizeUrl as _sanitizeUrl, ɵallowSanitizationBypassAndThrow as allowSanitizationBypassOrThrow, ɵbypassSanitizationTrustHtml as bypassSanitizationTrustHtml, ɵbypassSanitizationTrustResourceUrl as bypassSanitizationTrustResourceUrl, ɵbypassSanitizationTrustScript as bypassSanitizationTrustScript, ɵbypassSanitizationTrustStyle as bypassSanitizationTrustStyle, ɵbypassSanitizationTrustUrl as bypassSanitizationTrustUrl, ɵBypassType as BypassType, ɵgetSanitizationBypassType as getSanitizationBypassType, ɵunwrapSafeValue as unwrapSafeValue} from '@angular/core';
 
 export {SecurityContext};
 
@@ -21,42 +16,42 @@ export {SecurityContext};
 /**
  * Marker interface for a value that's safe to use in a particular context.
  *
- * @stable
+ * @publicApi
  */
 export interface SafeValue {}
 
 /**
  * Marker interface for a value that's safe to use as HTML.
  *
- * @stable
+ * @publicApi
  */
 export interface SafeHtml extends SafeValue {}
 
 /**
  * Marker interface for a value that's safe to use as style (CSS).
  *
- * @stable
+ * @publicApi
  */
 export interface SafeStyle extends SafeValue {}
 
 /**
  * Marker interface for a value that's safe to use as JavaScript.
  *
- * @stable
+ * @publicApi
  */
 export interface SafeScript extends SafeValue {}
 
 /**
  * Marker interface for a value that's safe to use as a URL linking to a document.
  *
- * @stable
+ * @publicApi
  */
 export interface SafeUrl extends SafeValue {}
 
 /**
  * Marker interface for a value that's safe to use as a URL to load executable code from.
  *
- * @stable
+ * @publicApi
  */
 export interface SafeResourceUrl extends SafeValue {}
 
@@ -89,8 +84,9 @@ export interface SafeResourceUrl extends SafeValue {}
  * into this call. Make sure any user data is appropriately escaped for this security context.
  * For more detail, see the [Security Guide](http://g.co/ng/security).
  *
- * @stable
+ * @publicApi
  */
+@Injectable({providedIn: 'root', useExisting: forwardRef(() => DomSanitizerImpl)})
 export abstract class DomSanitizer implements Sanitizer {
   /**
    * Sanitizes a value for use in the given SecurityContext.
@@ -100,7 +96,7 @@ export abstract class DomSanitizer implements Sanitizer {
    * by replacing URLs that have an unsafe protocol part (such as `javascript:`). The implementation
    * is responsible to make sure that the value can definitely be safely used in the given context.
    */
-  abstract sanitize(context: SecurityContext, value: any): string;
+  abstract sanitize(context: SecurityContext, value: SafeValue|string|null): string|null;
 
   /**
    * Bypass security and trust the given value to be safe HTML. Only use this when the bound HTML
@@ -147,40 +143,46 @@ export abstract class DomSanitizer implements Sanitizer {
   abstract bypassSecurityTrustResourceUrl(value: string): SafeResourceUrl;
 }
 
+export function domSanitizerImplFactory(injector: Injector) {
+  return new DomSanitizerImpl(injector.get(DOCUMENT));
+}
 
-@Injectable()
+@Injectable({providedIn: 'root', useFactory: domSanitizerImplFactory, deps: [Injector]})
 export class DomSanitizerImpl extends DomSanitizer {
-  constructor(@Inject(DOCUMENT) private _doc: any) { super(); }
+  constructor(@Inject(DOCUMENT) private _doc: any) {
+    super();
+  }
 
-  sanitize(ctx: SecurityContext, value: any): string {
+  sanitize(ctx: SecurityContext, value: SafeValue|string|null): string|null {
     if (value == null) return null;
     switch (ctx) {
       case SecurityContext.NONE:
-        return value;
+        return value as string;
       case SecurityContext.HTML:
-        if (value instanceof SafeHtmlImpl) return value.changingThisBreaksApplicationSecurity;
-        this.checkNotSafeValue(value, 'HTML');
-        return sanitizeHtml(this._doc, String(value));
+        if (allowSanitizationBypassOrThrow(value, BypassType.Html)) {
+          return unwrapSafeValue(value);
+        }
+        return _sanitizeHtml(this._doc, String(value));
       case SecurityContext.STYLE:
-        if (value instanceof SafeStyleImpl) return value.changingThisBreaksApplicationSecurity;
-        this.checkNotSafeValue(value, 'Style');
-        return sanitizeStyle(value);
+        if (allowSanitizationBypassOrThrow(value, BypassType.Style)) {
+          return unwrapSafeValue(value);
+        }
+        return value as string;
       case SecurityContext.SCRIPT:
-        if (value instanceof SafeScriptImpl) return value.changingThisBreaksApplicationSecurity;
-        this.checkNotSafeValue(value, 'Script');
+        if (allowSanitizationBypassOrThrow(value, BypassType.Script)) {
+          return unwrapSafeValue(value);
+        }
         throw new Error('unsafe value used in a script context');
       case SecurityContext.URL:
-        if (value instanceof SafeResourceUrlImpl || value instanceof SafeUrlImpl) {
-          // Allow resource URLs in URL contexts, they are strictly more trusted.
-          return value.changingThisBreaksApplicationSecurity;
+        const type = getSanitizationBypassType(value);
+        if (allowSanitizationBypassOrThrow(value, BypassType.Url)) {
+          return unwrapSafeValue(value);
         }
-        this.checkNotSafeValue(value, 'URL');
-        return sanitizeUrl(String(value));
+        return _sanitizeUrl(String(value));
       case SecurityContext.RESOURCE_URL:
-        if (value instanceof SafeResourceUrlImpl) {
-          return value.changingThisBreaksApplicationSecurity;
+        if (allowSanitizationBypassOrThrow(value, BypassType.ResourceUrl)) {
+          return unwrapSafeValue(value);
         }
-        this.checkNotSafeValue(value, 'ResourceURL');
         throw new Error(
             'unsafe value used in a resource URL context (see http://g.co/ng/security#xss)');
       default:
@@ -188,48 +190,19 @@ export class DomSanitizerImpl extends DomSanitizer {
     }
   }
 
-  private checkNotSafeValue(value: any, expectedType: string) {
-    if (value instanceof SafeValueImpl) {
-      throw new Error(
-          `Required a safe ${expectedType}, got a ${value.getTypeName()} ` +
-          `(see http://g.co/ng/security#xss)`);
-    }
+  bypassSecurityTrustHtml(value: string): SafeHtml {
+    return bypassSanitizationTrustHtml(value);
   }
-
-  bypassSecurityTrustHtml(value: string): SafeHtml { return new SafeHtmlImpl(value); }
-  bypassSecurityTrustStyle(value: string): SafeStyle { return new SafeStyleImpl(value); }
-  bypassSecurityTrustScript(value: string): SafeScript { return new SafeScriptImpl(value); }
-  bypassSecurityTrustUrl(value: string): SafeUrl { return new SafeUrlImpl(value); }
+  bypassSecurityTrustStyle(value: string): SafeStyle {
+    return bypassSanitizationTrustStyle(value);
+  }
+  bypassSecurityTrustScript(value: string): SafeScript {
+    return bypassSanitizationTrustScript(value);
+  }
+  bypassSecurityTrustUrl(value: string): SafeUrl {
+    return bypassSanitizationTrustUrl(value);
+  }
   bypassSecurityTrustResourceUrl(value: string): SafeResourceUrl {
-    return new SafeResourceUrlImpl(value);
+    return bypassSanitizationTrustResourceUrl(value);
   }
-}
-
-abstract class SafeValueImpl implements SafeValue {
-  constructor(public changingThisBreaksApplicationSecurity: string) {
-    // empty
-  }
-
-  abstract getTypeName(): string;
-
-  toString() {
-    return `SafeValue must use [property]=binding: ${this.changingThisBreaksApplicationSecurity}` +
-        ` (see http://g.co/ng/security#xss)`;
-  }
-}
-
-class SafeHtmlImpl extends SafeValueImpl implements SafeHtml {
-  getTypeName() { return 'HTML'; }
-}
-class SafeStyleImpl extends SafeValueImpl implements SafeStyle {
-  getTypeName() { return 'Style'; }
-}
-class SafeScriptImpl extends SafeValueImpl implements SafeScript {
-  getTypeName() { return 'Script'; }
-}
-class SafeUrlImpl extends SafeValueImpl implements SafeUrl {
-  getTypeName() { return 'URL'; }
-}
-class SafeResourceUrlImpl extends SafeValueImpl implements SafeResourceUrl {
-  getTypeName() { return 'ResourceURL'; }
 }

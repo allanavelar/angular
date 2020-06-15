@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -11,7 +11,7 @@ import * as i18n from '@angular/compiler/src/i18n/i18n_ast';
 import {serializeNodes} from '../../../src/i18n/digest';
 import {_extractMessages} from '../i18n_parser_spec';
 
-export function main(): void {
+{
   describe('i18n AST', () => {
     describe('CloneVisitor', () => {
       it('should clone an AST', () => {
@@ -36,13 +36,13 @@ export function main(): void {
         const visitor = new RecurseVisitor();
         const container = new i18n.Container(
             [
-              new i18n.Text('', null !),
-              new i18n.Placeholder('', '', null !),
-              new i18n.IcuPlaceholder(null !, '', null !),
+              new i18n.Text('', null!),
+              new i18n.Placeholder('', '', null!),
+              new i18n.IcuPlaceholder(null!, '', null!),
             ],
-            null !);
-        const tag = new i18n.TagPlaceholder('', {}, '', '', [container], false, null !);
-        const icu = new i18n.Icu('', '', {tag}, null !);
+            null!);
+        const tag = new i18n.TagPlaceholder('', {}, '', '', [container], false, null!);
+        const icu = new i18n.Icu('', '', {tag}, null!);
 
         icu.visit(visitor);
         expect(visitor.textCount).toEqual(1);
@@ -58,9 +58,15 @@ class RecurseVisitor extends i18n.RecurseVisitor {
   phCount = 0;
   icuPhCount = 0;
 
-  visitText(text: i18n.Text, context?: any): any { this.textCount++; }
+  visitText(text: i18n.Text, context?: any): any {
+    this.textCount++;
+  }
 
-  visitPlaceholder(ph: i18n.Placeholder, context?: any): any { this.phCount++; }
+  visitPlaceholder(ph: i18n.Placeholder, context?: any): any {
+    this.phCount++;
+  }
 
-  visitIcuPlaceholder(ph: i18n.IcuPlaceholder, context?: any): any { this.icuPhCount++; }
+  visitIcuPlaceholder(ph: i18n.IcuPlaceholder, context?: any): any {
+    this.icuPhCount++;
+  }
 }

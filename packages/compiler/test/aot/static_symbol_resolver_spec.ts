@@ -1,26 +1,27 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 import {StaticSymbol, StaticSymbolCache, StaticSymbolResolver, StaticSymbolResolverHost, Summary, SummaryResolver} from '@angular/compiler';
-import {CollectorOptions, MetadataCollector} from '@angular/tsc-wrapped';
+import {CollectorOptions, METADATA_VERSION} from '@angular/compiler-cli';
+import {MetadataCollector} from '@angular/compiler-cli/src/metadata/collector';
 import * as ts from 'typescript';
-
 
 // This matches .ts files but not .d.ts files.
 const TS_EXT = /(^.|(?!\.d)..)\.ts$/;
 
 describe('StaticSymbolResolver', () => {
-  const noContext = new StaticSymbol('', '', []);
   let host: StaticSymbolResolverHost;
   let symbolResolver: StaticSymbolResolver;
   let symbolCache: StaticSymbolCache;
 
-  beforeEach(() => { symbolCache = new StaticSymbolCache(); });
+  beforeEach(() => {
+    symbolCache = new StaticSymbolCache();
+  });
 
   function init(
       testData: {[key: string]: any} = DEFAULT_TEST_DATA, summaries: Summary<StaticSymbol>[] = [],
@@ -37,7 +38,8 @@ describe('StaticSymbolResolver', () => {
         () => symbolResolver.resolveSymbol(
             symbolResolver.getSymbolByModule('src/version-error', 'e')))
         .toThrow(new Error(
-            'Metadata version mismatch for module /tmp/src/version-error.d.ts, found version 100, expected 3'));
+            `Metadata version mismatch for module /tmp/src/version-error.d.ts, found version 100, expected ${
+                METADATA_VERSION}`));
   });
 
   it('should throw an exception for version 2 metadata', () => {
@@ -103,10 +105,32 @@ describe('StaticSymbolResolver', () => {
         .toBe(symbolResolver.getStaticSymbol('/tmp/src/export.ts', 'exportedObj', ['someMember']));
   });
 
+  it('should not explore re-exports of the same module', () => {
+    init({
+      '/tmp/src/test.ts': `
+        export * from './test';
+
+        export const testValue = 10;
+      `,
+    });
+
+    const symbols = symbolResolver.getSymbolsOf('/tmp/src/test.ts');
+    expect(symbols).toEqual([symbolResolver.getStaticSymbol('/tmp/src/test.ts', 'testValue')]);
+  });
+
   it('should use summaries in resolveSymbol and prefer them over regular metadata', () => {
-    const someSymbol = symbolCache.get('/test.ts', 'a');
-    init({'/test.ts': 'export var a = 2'}, [{symbol: someSymbol, metadata: 1}]);
-    expect(symbolResolver.resolveSymbol(someSymbol).metadata).toBe(1);
+    const symbolA = symbolCache.get('/test.ts', 'a');
+    const symbolB = symbolCache.get('/test.ts', 'b');
+    const symbolC = symbolCache.get('/test.ts', 'c');
+    init({'/test.ts': 'export var a = 2; export var b = 2; export var c = 2;'}, [
+      {symbol: symbolA, metadata: 1},
+      {symbol: symbolB, metadata: 1},
+    ]);
+    // reading the metadata of a symbol without a summary first,
+    // to test whether summaries are still preferred after this.
+    expect(symbolResolver.resolveSymbol(symbolC).metadata).toBe(2);
+    expect(symbolResolver.resolveSymbol(symbolA).metadata).toBe(1);
+    expect(symbolResolver.resolveSymbol(symbolB).metadata).toBe(1);
   });
 
   it('should be able to get all exported symbols of a file', () => {
@@ -114,6 +138,7 @@ describe('StaticSymbolResolver', () => {
       symbolResolver.getStaticSymbol('/tmp/src/reexport/src/origin1.d.ts', 'One'),
       symbolResolver.getStaticSymbol('/tmp/src/reexport/src/origin1.d.ts', 'Two'),
       symbolResolver.getStaticSymbol('/tmp/src/reexport/src/origin1.d.ts', 'Three'),
+      symbolResolver.getStaticSymbol('/tmp/src/reexport/src/origin1.d.ts', 'Six'),
     ]);
   });
 
@@ -122,36 +147,34 @@ describe('StaticSymbolResolver', () => {
       symbolResolver.getStaticSymbol('/tmp/src/reexport/reexport.d.ts', 'One'),
       symbolResolver.getStaticSymbol('/tmp/src/reexport/reexport.d.ts', 'Two'),
       symbolResolver.getStaticSymbol('/tmp/src/reexport/reexport.d.ts', 'Four'),
+      symbolResolver.getStaticSymbol('/tmp/src/reexport/reexport.d.ts', 'Six'),
       symbolResolver.getStaticSymbol('/tmp/src/reexport/reexport.d.ts', 'Five'),
-      symbolResolver.getStaticSymbol('/tmp/src/reexport/reexport.d.ts', 'Thirty')
+      symbolResolver.getStaticSymbol('/tmp/src/reexport/reexport.d.ts', 'Thirty'),
     ]);
   });
 
-  it('should merge the exported symbols of a file with the exported symbols of its summary', () => {
-    const someSymbol = symbolCache.get('/test.ts', 'a');
-    init(
-        {'/test.ts': 'export var b = 2'},
-        [{symbol: symbolCache.get('/test.ts', 'a'), metadata: 1}]);
-    expect(symbolResolver.getSymbolsOf('/test.ts')).toEqual([
-      symbolCache.get('/test.ts', 'a'), symbolCache.get('/test.ts', 'b')
-    ]);
-  });
+  it('should read the exported symbols of a file from the summary and ignore exports in the source',
+     () => {
+       init(
+           {'/test.ts': 'export var b = 2'},
+           [{symbol: symbolCache.get('/test.ts', 'a'), metadata: 1}]);
+       expect(symbolResolver.getSymbolsOf('/test.ts')).toEqual([symbolCache.get('/test.ts', 'a')]);
+     });
 
   describe('importAs', () => {
-
     it('should calculate importAs relationship for non source files without summaries', () => {
       init(
           {
             '/test.d.ts': [{
               '__symbolic': 'module',
-              'version': 3,
+              'version': METADATA_VERSION,
               'metadata': {
                 'a': {'__symbolic': 'reference', 'name': 'b', 'module': './test2'},
               }
             }],
             '/test2.d.ts': [{
               '__symbolic': 'module',
-              'version': 3,
+              'version': METADATA_VERSION,
               'metadata': {
                 'b': {'__symbolic': 'reference', 'name': 'c', 'module': './test3'},
               }
@@ -184,6 +207,25 @@ describe('StaticSymbolResolver', () => {
           .toBe(symbolCache.get('/test3.d.ts', 'b'));
     });
 
+    it('should ignore summaries for inputAs if requested', () => {
+      init(
+          {
+            '/test.ts': `
+        export {a} from './test2';
+      `
+          },
+          [], [{
+            symbol: symbolCache.get('/test2.d.ts', 'a'),
+            importAs: symbolCache.get('/test3.d.ts', 'b')
+          }]);
+
+      symbolResolver.getSymbolsOf('/test.ts');
+
+      expect(
+          symbolResolver.getImportAs(symbolCache.get('/test2.d.ts', 'a'), /* useSummaries */ false))
+          .toBeUndefined();
+    });
+
     it('should calculate importAs for symbols with members based on importAs for symbols without',
        () => {
          init(
@@ -201,7 +243,6 @@ describe('StaticSymbolResolver', () => {
          expect(symbolResolver.getImportAs(symbolCache.get('/test2.d.ts', 'a', ['someMember'])))
              .toBe(symbolCache.get('/test3.d.ts', 'b', ['someMember']));
        });
-
   });
 
   it('should replace references by StaticSymbols', () => {
@@ -222,15 +263,25 @@ describe('StaticSymbolResolver', () => {
     });
     expect(symbolResolver.resolveSymbol(symbolCache.get('/test.ts', 'a')).metadata)
         .toEqual(symbolCache.get('/test2.ts', 'b'));
-    expect(symbolResolver.resolveSymbol(symbolCache.get('/test.ts', 'x')).metadata).toEqual([
-      symbolCache.get('/test2.ts', 'y')
-    ]);
+    expect(symbolResolver.resolveSymbol(symbolCache.get('/test.ts', 'x')).metadata).toEqual([{
+      __symbolic: 'resolved',
+      symbol: symbolCache.get('/test2.ts', 'y'),
+      line: 3,
+      character: 24,
+      fileName: '/test.ts'
+    }]);
     expect(symbolResolver.resolveSymbol(symbolCache.get('/test.ts', 'simpleFn')).metadata).toEqual({
       __symbolic: 'function',
       parameters: ['fnArg'],
       value: [
-        symbolCache.get('/test.ts', 'a'), symbolCache.get('/test2.ts', 'y'),
-        Object({__symbolic: 'reference', name: 'fnArg'})
+        symbolCache.get('/test.ts', 'a'), {
+          __symbolic: 'resolved',
+          symbol: symbolCache.get('/test2.ts', 'y'),
+          line: 6,
+          character: 21,
+          fileName: '/test.ts'
+        },
+        {__symbolic: 'reference', name: 'fnArg'}
       ]
     });
   });
@@ -278,8 +329,9 @@ describe('StaticSymbolResolver', () => {
         .toBe(symbolCache.get('/test2.d.ts', '__a__'));
 
     expect(symbolResolver.getSymbolsOf('/test.ts')).toEqual([
-      symbolCache.get('/test.ts', '__x__'), symbolCache.get('/test.ts', '__y__'),
-      symbolCache.get('/test.ts', '__b__')
+      symbolCache.get('/test.ts', '__b__'),
+      symbolCache.get('/test.ts', '__x__'),
+      symbolCache.get('/test.ts', '__y__'),
     ]);
   });
 
@@ -287,17 +339,16 @@ describe('StaticSymbolResolver', () => {
     init({
       '/test.d.ts': [{
         '__symbolic': 'module',
-        'version': 3,
+        'version': METADATA_VERSION,
         'metadata': {
           'AParam': {__symbolic: 'class'},
           'AClass': {
             __symbolic: 'class',
             arity: 1,
             members: {
-              __ctor__: [{
-                __symbolic: 'constructor',
-                parameters: [symbolCache.get('/test.d.ts', 'AParam')]
-              }]
+              __ctor__: [
+                {__symbolic: 'constructor', parameters: [symbolCache.get('/test.d.ts', 'AParam')]}
+              ]
             }
           }
         }
@@ -347,6 +398,14 @@ describe('StaticSymbolResolver', () => {
     expect(symbol2.filePath).toEqual('/tmp/src/reexport/src/origin30.d.ts');
   });
 
+  it('should prefer names in the file over reexports', () => {
+    const metadata = symbolResolver
+                         .resolveSymbol(symbolResolver.getSymbolByModule(
+                             './reexport/reexport', 'Six', '/tmp/src/main.ts'))
+                         .metadata;
+    expect(metadata.__symbolic).toBe('class');
+  });
+
   it('should cache tracing a named export', () => {
     const moduleNameToFileNameSpy = spyOn(host, 'moduleNameToFileName').and.callThrough();
     const getMetadataForSpy = spyOn(host, 'getMetadataFor').and.callThrough();
@@ -364,7 +423,6 @@ describe('StaticSymbolResolver', () => {
     expect(symbol.name).toEqual('One');
     expect(symbol.filePath).toEqual('/tmp/src/reexport/src/origin1.d.ts');
   });
-
 });
 
 export class MockSummaryResolver implements SummaryResolver<StaticSymbol> {
@@ -372,21 +430,33 @@ export class MockSummaryResolver implements SummaryResolver<StaticSymbol> {
     symbol: StaticSymbol,
     importAs: StaticSymbol
   }[] = []) {}
-
+  addSummary(summary: Summary<StaticSymbol>) {
+    this.summaries.push(summary);
+  }
   resolveSummary(reference: StaticSymbol): Summary<StaticSymbol> {
-    return this.summaries.find(summary => summary.symbol === reference);
-  };
-  getSymbolsOf(filePath: string): StaticSymbol[] {
-    return this.summaries.filter(summary => summary.symbol.filePath === filePath)
-        .map(summary => summary.symbol);
+    return this.summaries.find(summary => summary.symbol === reference)!;
+  }
+  getSymbolsOf(filePath: string): StaticSymbol[]|null {
+    const symbols = this.summaries.filter(summary => summary.symbol.filePath === filePath)
+                        .map(summary => summary.symbol);
+    return symbols.length ? symbols : null;
   }
   getImportAs(symbol: StaticSymbol): StaticSymbol {
     const entry = this.importAs.find(entry => entry.symbol === symbol);
-    return entry ? entry.importAs : undefined !;
+    return entry ? entry.importAs : undefined!;
   }
-
-  isLibraryFile(filePath: string): boolean { return filePath.endsWith('.d.ts'); }
-  getLibraryFileName(filePath: string): string { return filePath.replace(/(\.d)?\.ts$/, '.d.ts'); }
+  getKnownModuleName(fileName: string): string|null {
+    return null;
+  }
+  isLibraryFile(filePath: string): boolean {
+    return filePath.endsWith('.d.ts');
+  }
+  toSummaryFileName(filePath: string): string {
+    return filePath.replace(/(\.d)?\.ts$/, '.d.ts');
+  }
+  fromSummaryFileName(filePath: string): string {
+    return filePath;
+  }
 }
 
 export class MockStaticSymbolResolverHost implements StaticSymbolResolverHost {
@@ -398,7 +468,9 @@ export class MockStaticSymbolResolverHost implements StaticSymbolResolverHost {
 
   // In tests, assume that symbols are not re-exported
   moduleNameToFileName(modulePath: string, containingFile?: string): string {
-    function splitPath(path: string): string[] { return path.split(/\/|\\/g); }
+    function splitPath(path: string): string[] {
+      return path.split(/\/|\\/g);
+    }
 
     function resolvePath(pathParts: string[]): string {
       const result: string[] = [];
@@ -429,17 +501,26 @@ export class MockStaticSymbolResolverHost implements StaticSymbolResolverHost {
     }
 
     if (modulePath.indexOf('.') === 0) {
-      const baseName = pathTo(containingFile !, modulePath);
+      const baseName = pathTo(containingFile!, modulePath);
       const tsName = baseName + '.ts';
       if (this._getMetadataFor(tsName)) {
         return tsName;
       }
       return baseName + '.d.ts';
     }
+    if (modulePath == 'unresolved') {
+      return undefined!;
+    }
     return '/tmp/' + modulePath + '.d.ts';
   }
 
-  getMetadataFor(moduleId: string): any { return this._getMetadataFor(moduleId); }
+  getMetadataFor(moduleId: string): any {
+    return this._getMetadataFor(moduleId);
+  }
+
+  getOutputName(filePath: string): string {
+    return filePath;
+  }
 
   private _getMetadataFor(filePath: string): any {
     if (this.data[filePath] && filePath.match(TS_EXT)) {
@@ -449,8 +530,13 @@ export class MockStaticSymbolResolverHost implements StaticSymbolResolverHost {
             filePath, this.data[filePath], ts.ScriptTarget.ES5, /* setParentNodes */ true);
         const diagnostics: ts.Diagnostic[] = (<any>sf).parseDiagnostics;
         if (diagnostics && diagnostics.length) {
-          const errors = diagnostics.map(d => `(${d.start}-${d.start+d.length}): ${d.messageText}`)
-                             .join('\n   ');
+          const errors = diagnostics
+                             .map(d => {
+                               const {line, character} =
+                                   ts.getLineAndCharacterOfPosition(d.file!, d.start!);
+                               return `(${line}:${character}): ${d.messageText}`;
+                             })
+                             .join('\n');
           throw Error(`Error encountered during parse of file ${filePath}\n${errors}`);
         }
         return [this.collector.getMetadata(sf)];
@@ -470,44 +556,47 @@ const DEFAULT_TEST_DATA: {[key: string]: any} = {
   '/tmp/src/version-2-error.d.ts': {'__symbolic': 'module', 'version': 2, metadata: {e: 's'}},
   '/tmp/src/reexport/reexport.d.ts': {
     __symbolic: 'module',
-    version: 3,
-    metadata: {},
+    version: METADATA_VERSION,
+    metadata: {
+      Six: {__symbolic: 'class'},
+    },
     exports: [
-      {from: './src/origin1', export: ['One', 'Two', {name: 'Three', as: 'Four'}]},
+      {from: './src/origin1', export: ['One', 'Two', {name: 'Three', as: 'Four'}, 'Six']},
       {from: './src/origin5'}, {from: './src/reexport2'}
     ]
   },
   '/tmp/src/reexport/src/origin1.d.ts': {
     __symbolic: 'module',
-    version: 3,
+    version: METADATA_VERSION,
     metadata: {
       One: {__symbolic: 'class'},
       Two: {__symbolic: 'class'},
       Three: {__symbolic: 'class'},
+      Six: {__symbolic: 'class'},
     },
   },
   '/tmp/src/reexport/src/origin5.d.ts': {
     __symbolic: 'module',
-    version: 3,
+    version: METADATA_VERSION,
     metadata: {
       Five: {__symbolic: 'class'},
     },
   },
   '/tmp/src/reexport/src/origin30.d.ts': {
     __symbolic: 'module',
-    version: 3,
+    version: METADATA_VERSION,
     metadata: {
       Thirty: {__symbolic: 'class'},
     },
   },
   '/tmp/src/reexport/src/originNone.d.ts': {
     __symbolic: 'module',
-    version: 3,
+    version: METADATA_VERSION,
     metadata: {},
   },
   '/tmp/src/reexport/src/reexport2.d.ts': {
     __symbolic: 'module',
-    version: 3,
+    version: METADATA_VERSION,
     metadata: {},
     exports: [{from: './originNone'}, {from: './origin30'}]
   }

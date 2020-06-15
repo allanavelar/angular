@@ -1,70 +1,81 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-
 
 import {Route, UrlMatchResult} from './config';
 import {UrlSegment, UrlSegmentGroup} from './url_tree';
 
 
 /**
- * @whatItDoes Name of the primary outlet.
+ * The primary routing outlet.
  *
- * @stable
+ * @publicApi
  */
 export const PRIMARY_OUTLET = 'primary';
 
 /**
- * A collection of parameters.
+ * A collection of matrix and query URL parameters.
+ * @see `convertToParamMap()`
+ * @see `ParamMap`
  *
- * @stable
+ * @publicApi
  */
 export type Params = {
-  [key: string]: any
+  [key: string]: any;
 };
 
 /**
- * Matrix and Query parameters.
+ * A map that provides access to the required and optional parameters
+ * specific to a route.
+ * The map supports retrieving a single value with `get()`
+ * or multiple values with `getAll()`.
  *
- * `ParamMap` makes it easier to work with parameters as they could have either a single value or
- * multiple value. Because this should be known by the user, calling `get` or `getAll` returns the
- * correct type (either `string` or `string[]`).
+ * @see [URLSearchParams](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
  *
- * The API is inspired by the URLSearchParams interface.
- * see https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
- *
- * @stable
+ * @publicApi
  */
 export interface ParamMap {
+  /**
+   * Reports whether the map contains a given parameter.
+   * @param name The parameter name.
+   * @returns True if the map contains the given parameter, false otherwise.
+   */
   has(name: string): boolean;
   /**
-   * Return a single value for the given parameter name:
-   * - the value when the parameter has a single value,
-   * - the first value if the parameter has multiple values,
-   * - `null` when there is no such parameter.
+   * Retrieves a single value for a parameter.
+   * @param name The parameter name.
+   * @return The parameter's single value,
+   * or the first value if the parameter has multiple values,
+   * or `null` when there is no such parameter.
    */
   get(name: string): string|null;
   /**
-   * Return an array of values for the given parameter name.
+   * Retrieves multiple values for a parameter.
+   * @param name The parameter name.
+   * @return An array containing one or more values,
+   * or an empty array if there is no such parameter.
    *
-   * If there is no such parameter, an empty array is returned.
    */
   getAll(name: string): string[];
 
-  /** Name of the parameters */
+  /** Names of the parameters in the map. */
   readonly keys: string[];
 }
 
 class ParamsAsMap implements ParamMap {
   private params: Params;
 
-  constructor(params: Params) { this.params = params || {}; }
+  constructor(params: Params) {
+    this.params = params || {};
+  }
 
-  has(name: string): boolean { return this.params.hasOwnProperty(name); }
+  has(name: string): boolean {
+    return this.params.hasOwnProperty(name);
+  }
 
   get(name: string): string|null {
     if (this.has(name)) {
@@ -84,13 +95,17 @@ class ParamsAsMap implements ParamMap {
     return [];
   }
 
-  get keys(): string[] { return Object.keys(this.params); }
+  get keys(): string[] {
+    return Object.keys(this.params);
+  }
 }
 
 /**
- * Convert a {@link Params} instance to a {@link ParamMap}.
+ * Converts a `Params` instance to a `ParamMap`.
+ * @param params The instance to convert.
+ * @returns The new map instance.
  *
- * @stable
+ * @publicApi
  */
 export function convertToParamMap(params: Params): ParamMap {
   return new ParamsAsMap(params);
@@ -105,13 +120,13 @@ export function navigationCancelingError(message: string) {
 }
 
 export function isNavigationCancelingError(error: Error) {
-  return (error as any)[NAVIGATION_CANCELING_ERROR];
+  return error && (error as any)[NAVIGATION_CANCELING_ERROR];
 }
 
 // Matches the route configuration (`route`) against the actual URL (`segments`).
 export function defaultUrlMatcher(
     segments: UrlSegment[], segmentGroup: UrlSegmentGroup, route: Route): UrlMatchResult|null {
-  const parts = route.path.split('/');
+  const parts = route.path!.split('/');
 
   if (parts.length > segments.length) {
     // The actual URL is shorter than the config, no match

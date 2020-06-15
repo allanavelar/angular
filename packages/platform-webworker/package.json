@@ -2,12 +2,11 @@
   "name": "@angular/platform-webworker",
   "version": "0.0.0-PLACEHOLDER",
   "description": "Angular - library for using Angular in a web browser with web workers",
-  "main": "./bundles/platform-webworker.umd.js",
-  "module": "./@angular/platform-webworker.es5.js",
-  "es2015": "./@angular/platform-webworker.js",
-  "typings": "./platform-webworker.d.ts",
   "author": "angular",
   "license": "MIT",
+  "dependencies": {
+    "tslib": "^2.0.0"
+  },
   "peerDependencies": {
     "@angular/common": "0.0.0-PLACEHOLDER",
     "@angular/core": "0.0.0-PLACEHOLDER",
@@ -15,6 +14,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/angular/angular.git"
+    "url": "https://github.com/angular/angular.git",
+    "directory": "packages/platform-webworker"
+  },
+  "ng-update": {
+    "packageGroup": "NG_UPDATE_PACKAGE_GROUP"
+  },
+  "sideEffects": false,
+  "publishConfig":{
+    "registry":"https://wombat-dressing-room.appspot.com"
   }
 }

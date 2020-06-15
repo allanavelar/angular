@@ -1,11 +1,4 @@
-@title
-User Input
-
-@intro
-User input triggers DOM events. We listen to those events with event bindings that funnel updated values back into our components and models.
-
-@description
-
+# User input
 
 User actions such as clicking a link, pushing a button, and entering
 text raise DOM events.
@@ -27,9 +20,7 @@ To bind to a DOM event, surround the DOM event name in parentheses and assign a 
 
 The following example shows an event binding that implements a click handler:
 
-<code-example path="user-input/src/app/click-me.component.ts" region="click-me-button" title="src/app/click-me.component.ts" linenums="false">
-
-</code-example>
+<code-example path="user-input/src/app/click-me.component.ts" region="click-me-button" header="src/app/click-me.component.ts"></code-example>
 
 {@a click}
 
@@ -44,9 +35,7 @@ usually the Angular component controlling the template.
 The example above shows a single line of HTML, but that HTML belongs to a larger component:
 
 
-<code-example path="user-input/src/app/click-me.component.ts" region="click-me-component" title="src/app/click-me.component.ts" linenums="false">
-
-</code-example>
+<code-example path="user-input/src/app/click-me.component.ts" region="click-me-component" header="src/app/click-me.component.ts"></code-example>
 
 
 
@@ -60,23 +49,19 @@ This section shows how to bind to the `keyup` event of an input box to get the u
 
 The following code listens to the `keyup` event and passes the entire event payload (`$event`) to the component event handler.
 
-<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-1-template" title="src/app/keyup.components.ts (template v.1)" linenums="false">
-
-</code-example>
+<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-1-template" header="src/app/keyup.components.ts (template v.1)"></code-example>
 
 
 
 When a user presses and releases a key, the `keyup` event occurs, and Angular provides a corresponding
 DOM event object in the `$event` variable which this code passes as a parameter to the component's `onKey()` method.
 
-<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-1-class-no-type" title="src/app/keyup.components.ts (class v.1)" linenums="false">
-
-</code-example>
+<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-1-class-no-type" header="src/app/keyup.components.ts (class v.1)"></code-example>
 
 
 
 The properties of an `$event` object vary depending on the type of DOM event. For example,
-a mouse event includes different information than a input box editing event.
+a mouse event includes different information than an input box editing event.
 
 All [standard DOM event objects](https://developer.mozilla.org/en-US/docs/Web/API/Event)
 have a `target` property, a reference to the element that raised the event.
@@ -84,9 +69,9 @@ In this case, `target` refers to the [`<input>` element](https://developer.mozil
 `event.target.value` returns the current contents of that element.
 
 After each call, the `onKey()` method appends the contents of the input box value to the list
-in the component's `values` property, followed by a  separator character (|).
+in the component's `values` property, followed by a separator character (|).
 The [interpolation](guide/template-syntax#interpolation)
-displays the accumulating input box changes from the `values` property. 
+displays the accumulating input box changes from the `values` property.
 
 Suppose the user enters the letters "abc", and then backspaces to remove them one by one.
 Here's what the UI displays:
@@ -97,13 +82,13 @@ Here's what the UI displays:
 
 
 
-<figure class='image-display'>
-  <img src='assets/images/devguide/user-input/keyup1-anim.gif' alt="key up 1"></img>
-</figure>
+<div class="lightbox">
+  <img src='generated/images/guide/user-input/keyup1-anim.gif' alt="key up 1">
+</div>
 
 
 
-~~~ {.l-sub-section}
+<div class="alert is-helpful">
 
 
 
@@ -117,7 +102,7 @@ for `event.target.value` in which case the same user input would produce:
 
 
 
-~~~
+</div>
 
 
 
@@ -127,19 +112,17 @@ for `event.target.value` in which case the same user input would produce:
 ### Type the _$event_
 
 The example above casts the `$event` as an `any` type.
-That simplifies the code at a cost. 
+That simplifies the code at a cost.
 There is no type information
 that could reveal properties of the event object and prevent silly mistakes.
 
 The following example rewrites the method with types:
 
-<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-1-class" title="src/app/keyup.components.ts (class v.1 - typed )" linenums="false">
-
-</code-example>
+<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-1-class" header="src/app/keyup.components.ts (class v.1 - typed )"></code-example>
 
 
 
-The `$event` is now a specific `KeyboardEvent`. 
+The `$event` is now a specific `KeyboardEvent`.
 Not all elements have a `value` property so it casts `target` to an input element.
 The `OnKey` method more clearly expresses what it expects from the template and how it interprets the event.
 
@@ -147,7 +130,7 @@ The `OnKey` method more clearly expresses what it expects from the template and 
 Typing the event object reveals a significant objection to passing the entire DOM event into the method:
 the component has too much awareness of the template details.
 It can't extract information without knowing more than it should about the HTML implementation.
-That breaks the separation of concerns between the template (_what the user sees_) 
+That breaks the separation of concerns between the template (_what the user sees_)
 and the component (_how the application processes user data_).
 
 The next section shows how to use template reference variables to address this problem.
@@ -163,9 +146,7 @@ To declare a template reference variable, precede an identifier with a hash (or 
 The following example uses a template reference variable
 to implement a keystroke loopback in a simple template.
 
-<code-example path="user-input/src/app/loop-back.component.ts" region="loop-back-component" title="src/app/loop-back.component.ts" linenums="false">
-
-</code-example>
+<code-example path="user-input/src/app/loop-back.component.ts" region="loop-back-component" header="src/app/loop-back.component.ts"></code-example>
 
 
 
@@ -180,13 +161,13 @@ and the component does nothing.
 Type something in the input box, and watch the display update with each keystroke.
 
 
-<figure class='image-display'>
-  <img src='assets/images/devguide/user-input/keyup-loop-back-anim.gif' alt="loop back"></img>
-</figure>
+<div class="lightbox">
+  <img src='generated/images/guide/user-input/keyup-loop-back-anim.gif' alt="loop back">
+</div>
 
 
 
-~~~ {.l-sub-section}
+<div class="alert is-helpful">
 
 
 
@@ -195,11 +176,11 @@ Type something in the input box, and watch the display update with each keystrok
 Angular updates the bindings (and therefore the screen)
 only if the app does something in response to asynchronous events, such as keystrokes.
 This example code binds the `keyup` event
-to the number 0, the shortest template statement possible. 
-While the statement does nothing useful, 
+to the number 0, the shortest template statement possible.
+While the statement does nothing useful,
 it satisfies Angular's requirement so that Angular will update the screen.
 
-~~~
+</div>
 
 
 
@@ -207,9 +188,7 @@ It's easier to get to the input box with the template reference
 variable than to go through the `$event` object. Here's a rewrite of the previous
 `keyup` example that uses a template reference variable to get the user's input.
 
-<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-2" title="src/app/keyup.components.ts (v2)" linenums="false">
-
-</code-example>
+<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-2" header="src/app/keyup.components.ts (v2)"></code-example>
 
 
 
@@ -223,20 +202,18 @@ The `(keyup)` event handler hears *every keystroke*.
 Sometimes only the _Enter_ key matters, because it signals that the user has finished typing.
 One way to reduce the noise would be to examine every `$event.keyCode` and take action only when the key is _Enter_.
 
-There's an easier way: bind to Angular's `keyup.enter` pseudo-event. 
+There's an easier way: bind to Angular's `keyup.enter` pseudo-event.
 Then Angular calls the event handler only when the user presses _Enter_.
 
-<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-3" title="src/app/keyup.components.ts (v3)" linenums="false">
-
-</code-example>
+<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-3" header="src/app/keyup.components.ts (v3)"></code-example>
 
 
 
 Here's how it works.
 
-<figure class='image-display'>
-  <img src='assets/images/devguide/user-input/keyup3-anim.gif' alt="key up 3"></img>
-</figure>
+<div class="lightbox">
+  <img src='generated/images/guide/user-input/keyup3-anim.gif' alt="key up 3">
+</div>
 
 
 
@@ -251,9 +228,7 @@ The component's `value` property is updated only when the user presses _Enter_.
 To fix this issue, listen to both the _Enter_ key and the _blur_ event.
 
 
-<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-4" title="src/app/keyup.components.ts (v4)" linenums="false">
-
-</code-example>
+<code-example path="user-input/src/app/keyup.components.ts" region="key-up-component-4" header="src/app/keyup.components.ts (v4)"></code-example>
 
 
 
@@ -268,18 +243,16 @@ The user can add a hero by typing the hero's name in the input box and
 clicking **Add**.
 
 
-<figure class='image-display'>
-  <img src='assets/images/devguide/user-input/little-tour-anim.gif' alt="Little Tour of Heroes"></img>
-</figure>
+<div class="lightbox">
+  <img src='generated/images/guide/user-input/little-tour-anim.gif' alt="Little Tour of Heroes">
+</div>
 
 
 
 Below is the "Little Tour of Heroes"  component.
 
 
-<code-example path="user-input/src/app/little-tour.component.ts" region="little-tour" title="src/app/little-tour.component.ts" linenums="false">
-
-</code-example>
+<code-example path="user-input/src/app/little-tour.component.ts" region="little-tour" header="src/app/little-tour.component.ts"></code-example>
 
 
 
@@ -295,7 +268,7 @@ get the input box value and pass *that* to `addHero`.
 
 * **Keep template statements simple** &mdash;
 The `(blur)` event is bound to two JavaScript statements.
-The first statement calls `addHero`.  The second statement, `newHero.value=''`,
+The first statement calls `addHero`. The second statement, `newHero.value=''`,
 clears the input box after a new hero is added to the list.
 
 
@@ -306,26 +279,42 @@ Following is all the code discussed in this page.
 
 <code-tabs>
 
-  <code-pane title="click-me.component.ts" path="user-input/src/app/click-me.component.ts">
+  <code-pane header="click-me.component.ts" path="user-input/src/app/click-me.component.ts">
 
   </code-pane>
 
-  <code-pane title="keyup.components.ts" path="user-input/src/app/keyup.components.ts">
+  <code-pane header="keyup.components.ts" path="user-input/src/app/keyup.components.ts">
 
   </code-pane>
 
-  <code-pane title="loop-back.component.ts" path="user-input/src/app/loop-back.component.ts">
+  <code-pane header="loop-back.component.ts" path="user-input/src/app/loop-back.component.ts">
 
   </code-pane>
 
-  <code-pane title="little-tour.component.ts" path="user-input/src/app/little-tour.component.ts">
+  <code-pane header="little-tour.component.ts" path="user-input/src/app/little-tour.component.ts">
 
   </code-pane>
 
 </code-tabs>
 
 
+Angular also supports passive event listeners. For example, you can use the following steps to make the scroll event passive.
 
+1. Create a file `zone-flags.ts` under `src` directory.
+2. Add the following line into this file.
+
+```
+(window as any)['__zone_symbol__PASSIVE_EVENTS'] = ['scroll'];
+```
+
+3. In the `src/polyfills.ts` file, before importing zone.js, import the newly created `zone-flags`.
+
+```
+import './zone-flags';
+import 'zone.js/dist/zone';  // Included with Angular CLI.
+```
+
+After those steps, if you add event listeners for the `scroll` event, the listeners will be `passive`.
 
 ## Summary
 

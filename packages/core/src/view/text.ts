@@ -1,57 +1,61 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {BindingDef, BindingFlags, NodeDef, NodeFlags, TextData, ViewData, asTextData} from './types';
-import {calcBindingFlags, checkAndUpdateBinding, getParentRenderElement} from './util';
+import {asTextData, BindingDef, BindingFlags, NodeDef, NodeFlags, TextData, ViewData} from './types';
+import {checkAndUpdateBinding, getParentRenderElement} from './util';
 
-export function textDef(ngContentIndex: number, constants: string[]): NodeDef {
-  const bindings: BindingDef[] = new Array(constants.length - 1);
-  for (let i = 1; i < constants.length; i++) {
+export function textDef(
+    checkIndex: number, ngContentIndex: number|null, staticText: string[]): NodeDef {
+  const bindings: BindingDef[] = [];
+  for (let i = 1; i < staticText.length; i++) {
     bindings[i - 1] = {
       flags: BindingFlags.TypeProperty,
       name: null,
       ns: null,
       nonMinifiedName: null,
       securityContext: null,
-      suffix: constants[i]
+      suffix: staticText[i],
     };
   }
-  const flags = NodeFlags.TypeText;
+
   return {
     // will bet set by the view definition
-    index: -1,
+    nodeIndex: -1,
     parent: null,
     renderParent: null,
     bindingIndex: -1,
     outputIndex: -1,
     // regular values
-    flags,
+    checkIndex,
+    flags: NodeFlags.TypeText,
     childFlags: 0,
     directChildFlags: 0,
     childMatchedQueries: 0,
     matchedQueries: {},
     matchedQueryIds: 0,
-    references: {}, ngContentIndex,
-    childCount: 0, bindings,
-    bindingFlags: calcBindingFlags(bindings),
+    references: {},
+    ngContentIndex,
+    childCount: 0,
+    bindings,
+    bindingFlags: BindingFlags.TypeProperty,
     outputs: [],
     element: null,
     provider: null,
-    text: {prefix: constants[0]},
+    text: {prefix: staticText[0]},
     query: null,
-    ngContent: null
+    ngContent: null,
   };
 }
 
 export function createText(view: ViewData, renderHost: any, def: NodeDef): TextData {
   let renderNode: any;
   const renderer = view.renderer;
-  renderNode = renderer.createText(def.text !.prefix);
+  renderNode = renderer.createText(def.text!.prefix);
   const parentEl = getParentRenderElement(view, renderHost, def);
   if (parentEl) {
     renderer.appendChild(parentEl, renderNode);
@@ -77,7 +81,7 @@ export function checkAndUpdateTextInline(
   if (bindLen > 9 && checkAndUpdateBinding(view, def, 9, v9)) changed = true;
 
   if (changed) {
-    let value = def.text !.prefix;
+    let value = def.text!.prefix;
     if (bindLen > 0) value += _addInterpolationPart(v0, bindings[0]);
     if (bindLen > 1) value += _addInterpolationPart(v1, bindings[1]);
     if (bindLen > 2) value += _addInterpolationPart(v2, bindings[2]);
@@ -88,7 +92,7 @@ export function checkAndUpdateTextInline(
     if (bindLen > 7) value += _addInterpolationPart(v7, bindings[7]);
     if (bindLen > 8) value += _addInterpolationPart(v8, bindings[8]);
     if (bindLen > 9) value += _addInterpolationPart(v9, bindings[9]);
-    const renderNode = asTextData(view, def.index).renderText;
+    const renderNode = asTextData(view, def.nodeIndex).renderText;
     view.renderer.setValue(renderNode, value);
   }
   return changed;
@@ -109,8 +113,8 @@ export function checkAndUpdateTextDynamic(view: ViewData, def: NodeDef, values: 
     for (let i = 0; i < values.length; i++) {
       value = value + _addInterpolationPart(values[i], bindings[i]);
     }
-    value = def.text !.prefix + value;
-    const renderNode = asTextData(view, def.index).renderText;
+    value = def.text!.prefix + value;
+    const renderNode = asTextData(view, def.nodeIndex).renderText;
     view.renderer.setValue(renderNode, value);
   }
   return changed;

@@ -1,86 +1,134 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AST, AttrAst, Attribute, BoundDirectivePropertyAst, BoundElementPropertyAst, BoundEventAst, BoundTextAst, CompileDirectiveMetadata, CompileDirectiveSummary, DirectiveAst, ElementAst, EmbeddedTemplateAst, NgAnalyzedModules, NgContentAst, ReferenceAst, StaticSymbol, TemplateAst, TemplateAstVisitor, TextAst, VariableAst, templateVisitAll} from '@angular/compiler';
+import {NgAnalyzedModules} from '@angular/compiler';
+import * as path from 'path';
+import * as ts from 'typescript';
 
-import {AstResult, SelectorInfo, TemplateInfo} from './common';
-import {getExpressionDiagnostics, getExpressionScope} from './expressions';
-import {HtmlAstPath} from './html_path';
-import {NullTemplateVisitor, TemplateAstChildVisitor, TemplateAstPath} from './template_path';
-import {Declaration, Declarations, Diagnostic, DiagnosticKind, Diagnostics, Span, SymbolTable, TemplateSource} from './types';
-import {getSelectors, hasTemplateReference, offsetSpan, spanOf} from './utils';
+import {createDiagnostic, Diagnostic} from './diagnostic_messages';
+import {getTemplateExpressionDiagnostics} from './expression_diagnostics';
+import {findPropertyValueOfType, findTightestNode} from './ts_utils';
+import * as ng from './types';
+import {TypeScriptServiceHost} from './typescript_host';
+import {offsetSpan, spanOf} from './utils';
 
-export interface AstProvider {
-  getTemplateAst(template: TemplateSource, fileName: string): AstResult;
-}
-
-export function getTemplateDiagnostics(
-    fileName: string, astProvider: AstProvider, templates: TemplateSource[]): Diagnostics {
-  const results: Diagnostics = [];
-  for (const template of templates) {
-    const ast = astProvider.getTemplateAst(template, fileName);
-    if (ast) {
-      if (ast.parseErrors && ast.parseErrors.length) {
-        results.push(...ast.parseErrors.map<Diagnostic>(
-            e => ({
-              kind: DiagnosticKind.Error,
-              span: offsetSpan(spanOf(e.span), template.span.start),
-              message: e.msg
-            })));
-      } else if (ast.templateAst) {
-        const expressionDiagnostics = getTemplateExpressionDiagnostics(template, ast);
-        results.push(...expressionDiagnostics);
-      }
-      if (ast.errors) {
-        results.push(...ast.errors.map<Diagnostic>(
-            e => ({kind: e.kind, span: e.span || template.span, message: e.message})));
-      }
-    }
+/**
+ * Return diagnostic information for the parsed AST of the template.
+ * @param ast contains HTML and template AST
+ */
+export function getTemplateDiagnostics(ast: ng.AstResult): ng.Diagnostic[] {
+  const {parseErrors, templateAst, htmlAst, template} = ast;
+  if (parseErrors && parseErrors.length) {
+    return parseErrors.map(e => {
+      return {
+        kind: ts.DiagnosticCategory.Error,
+        span: offsetSpan(spanOf(e.span), template.span.start),
+        message: e.msg,
+      };
+    });
   }
-  return results;
+  return getTemplateExpressionDiagnostics({
+    templateAst: templateAst,
+    htmlAst: htmlAst,
+    offset: template.span.start,
+    query: template.query,
+    members: template.members,
+    source: ast.template.source,
+  });
 }
 
+/**
+ * Performs a variety diagnostics on directive declarations.
+ *
+ * @param declarations Angular directive declarations
+ * @param modules NgModules in the project
+ * @param host TypeScript service host used to perform TypeScript queries
+ * @return diagnosed errors, if any
+ */
 export function getDeclarationDiagnostics(
-    declarations: Declarations, modules: NgAnalyzedModules): Diagnostics {
-  const results: Diagnostics = [];
-
-  let directives: Set<StaticSymbol>|undefined = undefined;
-  for (const declaration of declarations) {
-    const report = (message: string, span?: Span) => {
-      results.push(<Diagnostic>{
-        kind: DiagnosticKind.Error,
-        span: span || declaration.declarationSpan, message
-      });
-    };
-    for (const error of declaration.errors) {
-      report(error.message, error.span);
+    declarations: ng.Declaration[], modules: NgAnalyzedModules,
+    host: Readonly<TypeScriptServiceHost>): ng.Diagnostic[] {
+  const directives = new Set<ng.StaticSymbol>();
+  for (const ngModule of modules.ngModules) {
+    for (const directive of ngModule.declaredDirectives) {
+      directives.add(directive.reference);
     }
-    if (declaration.metadata) {
-      if (declaration.metadata.isComponent) {
-        if (!modules.ngModuleByPipeOrDirective.has(declaration.type)) {
-          report(
-              `Component '${declaration.type.name}' is not included in a module and will not be available inside a template. Consider adding it to a NgModule declaration`);
+  }
+
+  const results: ng.Diagnostic[] = [];
+
+  for (const declaration of declarations) {
+    const {errors, metadata, type, declarationSpan} = declaration;
+
+    const sf = host.getSourceFile(type.filePath);
+    if (!sf) {
+      host.error(`directive ${type.name} exists but has no source file`);
+      return [];
+    }
+    // TypeScript identifier of the directive declaration annotation (e.g. "Component" or
+    // "Directive") on a directive class.
+    const directiveIdentifier = findTightestNode(sf, declarationSpan.start);
+    if (!directiveIdentifier) {
+      host.error(`directive ${type.name} exists but has no identifier`);
+      return [];
+    }
+
+    for (const error of errors) {
+      results.push({
+        kind: ts.DiagnosticCategory.Error,
+        message: error.message,
+        span: error.span,
+      });
+    }
+
+    if (!modules.ngModuleByPipeOrDirective.has(declaration.type)) {
+      results.push(createDiagnostic(
+          declarationSpan, Diagnostic.directive_not_in_module,
+          metadata.isComponent ? 'Component' : 'Directive', type.name));
+    }
+
+    if (metadata.isComponent) {
+      const {template, templateUrl, styleUrls} = metadata.template !;
+      if (template === null && !templateUrl) {
+        results.push(createDiagnostic(
+            declarationSpan, Diagnostic.missing_template_and_templateurl, type.name));
+      } else if (templateUrl) {
+        if (template) {
+          results.push(createDiagnostic(
+              declarationSpan, Diagnostic.both_template_and_templateurl, type.name));
         }
-        if (!declaration.metadata.template.template && !declaration.metadata.template.templateUrl) {
-          report(`Component ${declaration.type.name} must have a template or templateUrl`);
+
+        // Find templateUrl value from the directive call expression, which is the parent of the
+        // directive identifier.
+        //
+        // TODO: We should create an enum of the various properties a directive can have to use
+        // instead of string literals. We can then perform a mass migration of all literal usages.
+        const templateUrlNode = findPropertyValueOfType(
+            directiveIdentifier.parent, 'templateUrl', ts.isLiteralExpression);
+        if (!templateUrlNode) {
+          host.error(`templateUrl ${templateUrl} exists but its TypeScript node doesn't`);
+          return [];
         }
-      } else {
-        if (!directives) {
-          directives = new Set();
-          modules.ngModules.forEach(module => {
-            module.declaredDirectives.forEach(
-                directive => { directives.add(directive.reference); });
-          });
+
+        results.push(...validateUrls([templateUrlNode], host.tsLsHost));
+      }
+
+      if (styleUrls.length > 0) {
+        // Find styleUrls value from the directive call expression, which is the parent of the
+        // directive identifier.
+        const styleUrlsNode = findPropertyValueOfType(
+            directiveIdentifier.parent, 'styleUrls', ts.isArrayLiteralExpression);
+        if (!styleUrlsNode) {
+          host.error(`styleUrls property exists but its TypeScript node doesn't'`);
+          return [];
         }
-        if (!directives.has(declaration.type)) {
-          report(
-              `Directive '${declaration.type.name}' is not included in a module and will not be available inside a template. Consider adding it to a NgModule declaration`);
-        }
+
+        results.push(...validateUrls(styleUrlsNode.elements, host.tsLsHost));
       }
     }
   }
@@ -88,161 +136,69 @@ export function getDeclarationDiagnostics(
   return results;
 }
 
-function getTemplateExpressionDiagnostics(
-    template: TemplateSource, astResult: AstResult): Diagnostics {
-  const info: TemplateInfo = {
-    template,
-    htmlAst: astResult.htmlAst,
-    directive: astResult.directive,
-    directives: astResult.directives,
-    pipes: astResult.pipes,
-    templateAst: astResult.templateAst,
-    expressionParser: astResult.expressionParser
-  };
-  const visitor = new ExpressionDiagnosticsVisitor(
-      info, (path: TemplateAstPath, includeEvent: boolean) =>
-                getExpressionScope(info, path, includeEvent));
-  templateVisitAll(visitor, astResult.templateAst);
-  return visitor.diagnostics;
+/**
+ * Checks that URLs on a directive point to a valid file.
+ * Note that this diagnostic check may require a filesystem hit, and thus may be slower than other
+ * checks.
+ *
+ * @param urls urls to check for validity
+ * @param tsLsHost TS LS host used for querying filesystem information
+ * @return diagnosed url errors, if any
+ */
+function validateUrls(
+    urls: ArrayLike<ts.Expression>, tsLsHost: Readonly<ts.LanguageServiceHost>): ng.Diagnostic[] {
+  if (!tsLsHost.fileExists) {
+    return [];
+  }
+
+  const allErrors: ng.Diagnostic[] = [];
+  // TODO(ayazhafiz): most of this logic can be unified with the logic in
+  // definitions.ts#getUrlFromProperty. Create a utility function to be used by both.
+  for (let i = 0; i < urls.length; ++i) {
+    const urlNode = urls[i];
+    if (!ts.isStringLiteralLike(urlNode)) {
+      // If a non-string value is assigned to a URL node (like `templateUrl`), a type error will be
+      // picked up by the TS Language Server.
+      continue;
+    }
+    const curPath = urlNode.getSourceFile().fileName;
+    const url = path.join(path.dirname(curPath), urlNode.text);
+    if (tsLsHost.fileExists(url)) continue;
+
+    // Exclude opening and closing quotes in the url span.
+    const urlSpan = {start: urlNode.getStart() + 1, end: urlNode.end - 1};
+    allErrors.push(createDiagnostic(urlSpan, Diagnostic.invalid_templateurl));
+  }
+  return allErrors;
 }
 
-class ExpressionDiagnosticsVisitor extends TemplateAstChildVisitor {
-  private path: TemplateAstPath;
-  private directiveSummary: CompileDirectiveSummary;
+/**
+ * Return a recursive data structure that chains diagnostic messages.
+ * @param chain
+ */
+function chainDiagnostics(chain: ng.DiagnosticMessageChain): ts.DiagnosticMessageChain {
+  return {
+    messageText: chain.message,
+    category: ts.DiagnosticCategory.Error,
+    code: 0,
+    next: chain.next ? chain.next.map(chainDiagnostics) : undefined
+  };
+}
 
-  diagnostics: Diagnostics = [];
-
-  constructor(
-      private info: TemplateInfo,
-      private getExpressionScope: (path: TemplateAstPath, includeEvent: boolean) => SymbolTable) {
-    super();
-    this.path = new TemplateAstPath([], 0);
-  }
-
-  visitDirective(ast: DirectiveAst, context: any): any {
-    // Override the default child visitor to ignore the host properties of a directive.
-    if (ast.inputs && ast.inputs.length) {
-      templateVisitAll(this, ast.inputs, context);
-    }
-  }
-
-  visitBoundText(ast: BoundTextAst): void {
-    this.push(ast);
-    this.diagnoseExpression(ast.value, ast.sourceSpan.start.offset, false);
-    this.pop();
-  }
-
-  visitDirectiveProperty(ast: BoundDirectivePropertyAst): void {
-    this.push(ast);
-    this.diagnoseExpression(ast.value, this.attributeValueLocation(ast), false);
-    this.pop();
-  }
-
-  visitElementProperty(ast: BoundElementPropertyAst): void {
-    this.push(ast);
-    this.diagnoseExpression(ast.value, this.attributeValueLocation(ast), false);
-    this.pop();
-  }
-
-  visitEvent(ast: BoundEventAst): void {
-    this.push(ast);
-    this.diagnoseExpression(ast.handler, this.attributeValueLocation(ast), true);
-    this.pop();
-  }
-
-  visitVariable(ast: VariableAst): void {
-    const directive = this.directiveSummary;
-    if (directive && ast.value) {
-      const context = this.info.template.query.getTemplateContext(directive.type.reference);
-      if (context && !context.has(ast.value)) {
-        if (ast.value === '$implicit') {
-          this.reportError(
-              'The template context does not have an implicit value', spanOf(ast.sourceSpan));
-        } else {
-          this.reportError(
-              `The template context does not defined a member called '${ast.value}'`,
-              spanOf(ast.sourceSpan));
-        }
-      }
-    }
-  }
-
-  visitElement(ast: ElementAst, context: any): void {
-    this.push(ast);
-    super.visitElement(ast, context);
-    this.pop();
-  }
-
-  visitEmbeddedTemplate(ast: EmbeddedTemplateAst, context: any): any {
-    const previousDirectiveSummary = this.directiveSummary;
-
-    this.push(ast);
-
-    // Find directive that refernces this template
-    this.directiveSummary =
-        ast.directives.map(d => d.directive).find(d => hasTemplateReference(d.type));
-
-    // Process children
-    super.visitEmbeddedTemplate(ast, context);
-
-    this.pop();
-
-    this.directiveSummary = previousDirectiveSummary;
-  }
-
-  private attributeValueLocation(ast: TemplateAst) {
-    const path = new HtmlAstPath(this.info.htmlAst, ast.sourceSpan.start.offset);
-    const last = path.tail;
-    if (last instanceof Attribute && last.valueSpan) {
-      // Add 1 for the quote.
-      return last.valueSpan.start.offset + 1;
-    }
-    return ast.sourceSpan.start.offset;
-  }
-
-  private diagnoseExpression(ast: AST, offset: number, includeEvent: boolean) {
-    const scope = this.getExpressionScope(this.path, includeEvent);
-    this.diagnostics.push(
-        ...getExpressionDiagnostics(scope, ast, this.info.template.query, {
-          event: includeEvent
-        }).map(d => ({
-                 span: offsetSpan(d.ast.span, offset + this.info.template.span.start),
-                 kind: d.kind,
-                 message: d.message
-               })));
-  }
-
-  private push(ast: TemplateAst) { this.path.push(ast); }
-
-  private pop() { this.path.pop(); }
-
-  private _selectors: SelectorInfo;
-  private selectors(): SelectorInfo {
-    let result = this._selectors;
-    if (!result) {
-      this._selectors = result = getSelectors(this.info);
-    }
-    return result;
-  }
-
-  private findElement(position: number): Element {
-    const htmlPath = new HtmlAstPath(this.info.htmlAst, position);
-    if (htmlPath.tail instanceof Element) {
-      return htmlPath.tail;
-    }
-  }
-
-  private reportError(message: string, span: Span) {
-    this.diagnostics.push({
-      span: offsetSpan(span, this.info.template.span.start),
-      kind: DiagnosticKind.Error, message
-    });
-  }
-
-  private reportWarning(message: string, span: Span) {
-    this.diagnostics.push({
-      span: offsetSpan(span, this.info.template.span.start),
-      kind: DiagnosticKind.Warning, message
-    });
-  }
+/**
+ * Convert ng.Diagnostic to ts.Diagnostic.
+ * @param d diagnostic
+ * @param file
+ */
+export function ngDiagnosticToTsDiagnostic(
+    d: ng.Diagnostic, file: ts.SourceFile|undefined): ts.Diagnostic {
+  return {
+    file,
+    start: d.span.start,
+    length: d.span.end - d.span.start,
+    messageText: typeof d.message === 'string' ? d.message : chainDiagnostics(d.message),
+    category: d.kind,
+    code: 0,
+    source: 'ng',
+  };
 }

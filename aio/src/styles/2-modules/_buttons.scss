@@ -1,11 +1,11 @@
 /* Button Styles */
 
 .button,
-a.button.md-button {
+a.button.mat-button {
   display: inline-block;
-  line-height: 32px;
+  @include line-height(32);
   padding: 0px 16px;
-  font-size: 14px;
+  @include font-size(14);
   font-weight: 400;
   border-radius: 3px;
   text-decoration: none;
@@ -15,20 +15,20 @@ a.button.md-button {
 
   // SIZES
   &.button-small {
-    font-size: 12px;
-    line-height: 24px;
+    @include font-size(12);
+    @include line-height(24);
     padding: 0px 8px;
   }
 
   &.button-large {
-    font-size: 15px;
-    line-height: 48px;
+    @include font-size(15);
+    @include line-height(48);
     padding: 0px 24px;
   }
 
   &.button-x-large {
-    font-size: 16px;
-    line-height: 56px;
+    @include font-size(16);
+    @include line-height(56);
     padding: 0px 24px;
   }
 
@@ -48,29 +48,24 @@ a.button.md-button {
   &.button-subtle {
     background: $mediumgray;
     color: darken($offwhite, 10%);
+
+    &:hover {
+      color: rgba($white, 0.7);
+    }
   }
 
-  &.button-navy {
+  &.button-blue {
     background: $blue;
     color: rgba($white, .87);
+
+    &:hover {
+      color: rgba($white, 0.7);
+    }
   }
 
   &.button-banner {
     background: $darkgray;
     color: rgba($white, .87);
-  }
-
-  &.button-shield,
-  &.button-shield.md-button {
-    background-color: $blue;
-    background: $blue url('assets/images/logos/angular/angular_whiteTransparent.svg') 24px 13px no-repeat;
-    color: rgba($white, .87);
-    padding-left: 54px;
-
-    @media only screen and (-webkit-min-device-pixel-ratio: 2), only screen and (min-device-pixel-ratio: 2) {
-      background: $blue url('assets/images/logos/angular/angular_whiteTransparent.svg') 24px 13px no-repeat;
-      background-size: 22px 22px;
-    }
   }
 }
 
@@ -86,4 +81,23 @@ a.button.md-button {
         color: $offwhite;
     }
   }
+}
+
+a.filter-button {
+  width: 140px;
+  @include font-size(14);
+  padding: 0px 16px;
+  margin: 8px;
+  @include line-height(48);
+  border: 2px solid $blue;
+  border-radius: 4px;
+
+  &:hover {
+    background-color: $blue;
+    color: $white;
+  }
+}
+
+[mat-button], [mat-raised-button], [mat-button], [mat-raised-button] {
+  text-transform: uppercase;
 }

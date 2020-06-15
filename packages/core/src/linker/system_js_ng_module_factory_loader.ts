@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -8,6 +8,7 @@
 
 
 import {Injectable, Optional} from '../di';
+import {ivyEnabled} from '../ivy_switch';
 
 import {Compiler} from './compiler';
 import {NgModuleFactory} from './ng_module_factory';
@@ -16,23 +17,28 @@ import {NgModuleFactoryLoader} from './ng_module_factory_loader';
 const _SEPARATOR = '#';
 
 const FACTORY_CLASS_SUFFIX = 'NgFactory';
+declare var System: any;
 
 /**
  * Configuration for SystemJsNgModuleLoader.
  * token.
  *
- * @experimental
+ * @publicApi
+ * @deprecated the `string` form of `loadChildren` is deprecated, and `SystemJsNgModuleLoaderConfig`
+ * is part of its implementation. See `LoadChildren` for more details.
  */
 export abstract class SystemJsNgModuleLoaderConfig {
   /**
    * Prefix to add when computing the name of the factory module for a given module name.
    */
-  factoryPathPrefix: string;
+  // TODO(issue/24571): remove '!'.
+  factoryPathPrefix!: string;
 
   /**
    * Suffix to add when computing the name of the factory module for a given module name.
    */
-  factoryPathSuffix: string;
+  // TODO(issue/24571): remove '!'.
+  factoryPathSuffix!: string;
 }
 
 const DEFAULT_CONFIG: SystemJsNgModuleLoaderConfig = {
@@ -42,7 +48,9 @@ const DEFAULT_CONFIG: SystemJsNgModuleLoaderConfig = {
 
 /**
  * NgModuleFactoryLoader that uses SystemJS to load NgModuleFactory
- * @experimental
+ * @publicApi
+ * @deprecated the `string` form of `loadChildren` is deprecated, and `SystemJsNgModuleLoader` is
+ * part of its implementation. See `LoadChildren` for more details.
  */
 @Injectable()
 export class SystemJsNgModuleLoader implements NgModuleFactoryLoader {
@@ -53,8 +61,8 @@ export class SystemJsNgModuleLoader implements NgModuleFactoryLoader {
   }
 
   load(path: string): Promise<NgModuleFactory<any>> {
-    const offlineMode = this._compiler instanceof Compiler;
-    return offlineMode ? this.loadFactory(path) : this.loadAndCompile(path);
+    const legacyOfflineMode = !ivyEnabled && this._compiler instanceof Compiler;
+    return legacyOfflineMode ? this.loadFactory(path) : this.loadAndCompile(path);
   }
 
   private loadAndCompile(path: string): Promise<NgModuleFactory<any>> {

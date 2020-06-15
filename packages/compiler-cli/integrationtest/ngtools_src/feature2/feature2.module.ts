@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -16,10 +16,9 @@ export class FeatureComponent {
 @NgModule({
   declarations: [FeatureComponent],
   imports: [RouterModule.forChild([
-    {path: '', component: FeatureComponent}, {path: 'd', loadChildren: './default.module'} {
-      path: 'e',
-      loadChildren: 'feature/feature.module#FeatureModule'
-    }
+    {path: '', component: FeatureComponent},
+    {path: 'd', loadChildren: './default.module'},
+    {path: 'e', loadChildren: 'feature/feature.module#FeatureModule'},
   ])]
 })
 export class Feature2Module {

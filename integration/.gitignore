@@ -1,10 +1,12 @@
-/rxjs/
 built/
 dist/
 vendor/
+tmp/
 */src/*.d.ts
 */src/*.js
+!karma.conf.js
 **/*.ngfactory.ts
 **/*.ngsummary.json
-*/yarn*
-*/.yarn_local_cache*
+**/*.ngsummary.ts
+**/.yarn_local_cache*
+**/NPM_PACKAGE_MANIFEST.json

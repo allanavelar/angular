@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -17,6 +17,7 @@ import {DatePipe} from './date_pipe';
 import {I18nPluralPipe} from './i18n_plural_pipe';
 import {I18nSelectPipe} from './i18n_select_pipe';
 import {JsonPipe} from './json_pipe';
+import {KeyValue, KeyValuePipe} from './keyvalue_pipe';
 import {CurrencyPipe, DecimalPipe, PercentPipe} from './number_pipe';
 import {SlicePipe} from './slice_pipe';
 
@@ -28,11 +29,13 @@ export {
   I18nPluralPipe,
   I18nSelectPipe,
   JsonPipe,
+  KeyValue,
+  KeyValuePipe,
   LowerCasePipe,
   PercentPipe,
   SlicePipe,
   TitleCasePipe,
-  UpperCasePipe
+  UpperCasePipe,
 };
 
 
@@ -52,4 +55,5 @@ export const COMMON_PIPES = [
   DatePipe,
   I18nPluralPipe,
   I18nSelectPipe,
+  KeyValuePipe,
 ];

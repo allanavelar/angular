@@ -1,147 +1,230 @@
-// @mixin docs-site-typography() {
-//   .docs-component-viewer-tabbed-content .docs-component-view-text-content,
-//   .docs-guide-content {
+html {
+  font-size: 62.5%;
+}
 
-    body {
-      font-family: $main-font;
-      margin: 0;
-      color: $darkgray;
-      font-size: 14px;
-    }
+body {
+  font-family: $main-font;
+  margin: 0;
+  color: $darkgray;
+  @include font-size(14);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-    h1 {
-      display:inline-block;
-      font-size: 36px;
-      font-weight: 400;
-      margin: 8px 0px;
-    }
+h1, h2, h3, h4, h5, h6 {
+  color: $deepgray;
+}
 
-    h1:after {
-      content: "";
-      display: block;
-      height: 1px;
-      width: 40%;
-      margin: 32px 0px 10px;
-      background: $lightgray;
-    }
+h1 {
+  @include font-size(24);
+  font-weight: 500;
+  display: inline-block;
+  margin: 8px 0px;
 
-    h2 {
-      font-size: 30px;
-      font-weight: 500;
-      margin: 32px 0px 24px;
-    }
+  @media screen and (max-width: 600px) {
+    margin-top: 0;
+  }
+}
 
-    h3 {
-      font-size: 24px;
-      font-weight: 500;
-      margin: 24px 0px;
-    }
+h2 {
+  @include font-size(22);
+  font-weight: 500;
+  margin: 32px 0px 24px;
+  clear: both;
+}
 
-    h4 {
-      font-size: 24px;
-      font-weight: 400;
-      margin: 8px 0px;
-    }
+h3 {
+  @include font-size(20);
+  font-weight: 400;
+  margin: 24px 0px 12px;
+  clear: both;
+}
 
-    h5 {
-      font-size: 18px;
-      font-weight: 500;
-      margin: 8px 0px;
-    }
+h4 {
+  @include font-size(18);
+  font-weight: 400;
+  margin: 8px 0px;
+  clear: both;
+}
 
-    h6 {
-      color: $mediumgray;
-      font-size: 18px;
-      font-weight: 400;
-      margin: 8px 0px;
-    }
+h5 {
+  @include font-size(16);
+  font-weight: 500;
+  margin: 8px 0px;
+  clear: both;
+}
 
+h6 {
+  @include font-size(16);
+  font-weight: 500;
+  color: $mediumgray;
+  margin: 8px 0px;
+  clear: both;
+}
 
-    .mat-tab-body-wrapper h2 {
+h2,
+h3,
+h4,
+h5,
+h6 {
+  a {
+    font-size: inherit;
+  }
+
+  @media screen and (max-width: 600px) {
+    margin: 8px 0;
+  }
+}
+
+.mat-tab-body-wrapper h2 {
+  margin-top: 0;
+}
+
+p,
+ol,
+ul,
+ol,
+li,
+input,
+a {
+  @include font-size(14);
+  @include line-height(24);
+  @include letter-spacing(0.3);
+  font-weight: 400;
+  color: $darkgray;
+  & > em {
+    @include letter-spacing(0.3);
+  }
+}
+
+p {
+  margin: 14px 0 0;
+}
+
+p + ul {
+  margin-top: 4px;
+}
+
+ol {
+  li,
+  p {
+    margin: 4px 0;
+  }
+}
+
+ol ol {
+  list-style-type: lower-alpha;
+
+  ol {
+    list-style-type: lower-roman;
+  }
+}
+
+li {
+  padding-bottom: 8px;
+
+  p {
+    margin: 0;
+  }
+}
+
+a {
+  text-decoration: none;
+}
+
+.app-toolbar a {
+  @include font-size(16);
+  font-weight: 400;
+  color: $white;
+  font-family: $main-font;
+  text-transform: uppercase;
+}
+
+strong {
+  font-weight: 500;
+}
+
+table {
+  border-collapse: collapse;
+  border-radius: 2px;
+  border-spacing: 0;
+  margin: 12px 0 32px;
+}
+
+table tbody th {
+  max-width: 100px;
+  padding: 13px 32px;
+  text-align: left;
+}
+
+td {
+  font-weight: 400;
+  padding: 8px 30px;
+  @include letter-spacing(0.3);
+
+  > p,
+  ul {
+    &:first-child {
       margin-top: 0;
     }
-
-    p, ol, ul, ol, li, input, a  {
-      font-size: 14px;
-      line-height: 24px;
-      letter-spacing: 0.30px;
-      & > em {
-        letter-spacing: 0.30px;
-      }
+    &:last-child {
+      margin-bottom: 0;
     }
+  }
+}
 
-    ol li {
-      margin: 14px 0px;
-    }
+th {
+  @include font-size(16);
+  font-weight: 500;
+  padding: 13px 32px;
+  text-align: left;
+}
 
+code {
+  font-family: $code-font;
+  font-size: 90%;
+  color: $darkgray;
+}
+
+.sidenav-content a {
+  color: $blue;
+  &:hover {
+    color: $mediumgray;
+  }
+}
+
+// The following css rule adds an icon to external links in the docs area.
+// The following `folder-*` classes are applied to the `doc-viewer`component when it is displaying docs for these areas of the documentation.
+// We add the icon to all external links which are identified as absolute links (those that start with `http` or https`).
+// For more info see PR #36601
+
+.folder-api,
+.folder-cli,
+.folder-docs,
+.folder-guide,
+.folder-start,
+.folder-tutorial {
+  
+  aio-doc-viewer{
     a {
-      text-decoration: none;
-    }
-
-    .mat-toolbar-row a {
-      font-size: 18px;
-      font-weight: 300;
-      color: white;
-      font-family: $main-font;
-      text-transform: uppercase;
-    }
-
-    strong {
-      font-weight: 500;
-    }
-
-    table {
-      border-collapse: collapse;
-      border-radius: 2px;
-      border-spacing: 0;
-      margin: 0 0 32px 0;
-      width: 100%;
-    }
-
-    table tbody th {
-      max-width: 100px;
-      padding: 13px 32px;
-      text-align: left;
-    }
-
-    td {
-      font-weight: 400;
-      padding: 8px 30px;
-
-      p {
-        margin: 0;
+      &[href^="http:"]::after,
+      &[href^="https:"]::after {
+        font-family: "Material Icons";
+        content: "open_in_new";
+        margin-left: 2px;
+        position: relative;
+        @include line-height(24);
+        vertical-align: bottom; 
       }
     }
 
-    th {
-      font-size: 16px;
-      font-weight: 500;
-      padding: 13px 32px;
-      text-align: left;
-    }
-
-    p > code, li > code, table code {
-      font-family: $code-font;
-      font-size: 90%;
-      color: $blue;
-      letter-spacing: 0;
-      line-height: 1;
-      padding: 2px 4px;
-      background-color: $backgroundgray;
-      border-radius: 4px;
-    }
-
-    code {
-      font-family: $code-font;
-      font-size: 90%;
-    }
-
-    .sidenav-content a {
-      color: $blue;
-      &:hover {
-        color: $mediumgray;
+    // The docs-viewer also contain links to GitHub (e.g. the edit this page icon) identified with `.github-links` class.
+    // We don't want to add the external link icon to these links, so we hide them.
+    .github-links a {
+      &[href^="http:"]::after,
+      &[href^="https:"]::after {
+        display: none;
       }
     }
-
-//   }
-// }
+  }
+}

@@ -1,19 +1,25 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 import {TableCell} from '../util';
+
+// We load "IncrementalDOM" as a AMD global because the "incremental-dom" NPM package does not
+// come with a named UMD module, and it's easier to just import the AMD file and use it globally.
+declare const IncrementalDOM: any;
 const {patch, elementOpen, elementClose, elementOpenStart, elementOpenEnd, attr, text} =
-    require('incremental-dom');
+    IncrementalDOM;
 
 export class TableComponent {
   constructor(private _rootEl: any) {}
 
-  set data(data: TableCell[][]) { patch(this._rootEl, () => this._render(data)); }
+  set data(data: TableCell[][]) {
+    patch(this._rootEl, () => this._render(data));
+  }
 
   private _render(data: TableCell[][]) {
     elementOpen('table');

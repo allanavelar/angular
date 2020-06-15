@@ -1,22 +1,31 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Subject} from 'rxjs/Subject';
+/// <reference types="rxjs" />
+
+import {Subject, Subscription} from 'rxjs';
 
 /**
- * Use by directives and components to emit custom Events.
+ * Use in components with the `@Output` directive to emit custom events
+ * synchronously or asynchronously, and register handlers for those events
+ * by subscribing to an instance.
  *
- * ### Examples
+ * @usageNotes
  *
- * In the following example, `Zippy` alternatively emits `open` and `close` events when its
- * title gets clicked:
+ * Extends
+ * [RxJS `Subject`](https://rxjs.dev/api/index/class/Subject)
+ * for Angular by adding the `emit()` method.
  *
- * ```
+ * In the following example, a component defines two output properties
+ * that create event emitters. When the title is clicked, the emitter
+ * emits an open or close event to toggle the current visibility state.
+ *
+ * ```html
  * @Component({
  *   selector: 'zippy',
  *   template: `
@@ -42,39 +51,60 @@ import {Subject} from 'rxjs/Subject';
  * }
  * ```
  *
- * The events payload can be accessed by the parameter `$event` on the components output event
+ * Access the event object with the `$event` argument passed to the output event
  * handler:
  *
- * ```
+ * ```html
  * <zippy (open)="onOpen($event)" (close)="onClose($event)"></zippy>
  * ```
  *
- * Uses Rx.Observable but provides an adapter to make it work as specified here:
- * https://github.com/jhusain/observable-spec
- *
- * Once a reference implementation of the spec is available, switch to it.
- * @stable
+ * @see [Observables in Angular](guide/observables-in-angular)
+ * @publicApi
  */
-export class EventEmitter<T> extends Subject<T> {
-  // TODO: mark this as internal once all the facades are gone
-  // we can't mark it as internal now because EventEmitter exported via @angular/core would not
-  // contain this property making it incompatible with all the code that uses EventEmitter via
-  // facades, which are local to the code and do not have this property stripped.
-  // tslint:disable-next-line
+export interface EventEmitter<T> extends Subject<T> {
+  /**
+   * @internal
+   */
   __isAsync: boolean;
 
   /**
-   * Creates an instance of [EventEmitter], which depending on [isAsync],
-   * delivers events synchronously or asynchronously.
+   * Creates an instance of this class that can
+   * deliver events synchronously or asynchronously.
+   *
+   * @param [isAsync=false] When true, deliver events asynchronously.
+   *
    */
+  new(isAsync?: boolean): EventEmitter<T>;
+
+  /**
+   * Emits an event containing a given value.
+   * @param value The value to emit.
+   */
+  emit(value?: T): void;
+  /**
+   * Registers handlers for events emitted by this instance.
+   * @param generatorOrNext When supplied, a custom handler for emitted events.
+   * @param error When supplied, a custom handler for an error notification
+   * from this emitter.
+   * @param complete When supplied, a custom handler for a completion
+   * notification from this emitter.
+   */
+  subscribe(generatorOrNext?: any, error?: any, complete?: any): Subscription;
+}
+
+class EventEmitter_ extends Subject<any> {
+  __isAsync: boolean;  // tslint:disable-line
+
   constructor(isAsync: boolean = false) {
     super();
     this.__isAsync = isAsync;
   }
 
-  emit(value?: T) { super.next(value); }
+  emit(value?: any) {
+    super.next(value);
+  }
 
-  subscribe(generatorOrNext?: any, error?: any, complete?: any): any {
+  subscribe(generatorOrNext?: any, error?: any, complete?: any): Subscription {
     let schedulerFn: (t: any) => any;
     let errorFn = (err: any): any => null;
     let completeFn = (): any => null;
@@ -82,32 +112,63 @@ export class EventEmitter<T> extends Subject<T> {
     if (generatorOrNext && typeof generatorOrNext === 'object') {
       schedulerFn = this.__isAsync ? (value: any) => {
         setTimeout(() => generatorOrNext.next(value));
-      } : (value: any) => { generatorOrNext.next(value); };
+      } : (value: any) => {
+        generatorOrNext.next(value);
+      };
 
       if (generatorOrNext.error) {
-        errorFn = this.__isAsync ? (err) => { setTimeout(() => generatorOrNext.error(err)); } :
-                                   (err) => { generatorOrNext.error(err); };
+        errorFn = this.__isAsync ? (err) => {
+          setTimeout(() => generatorOrNext.error(err));
+        } : (err) => {
+          generatorOrNext.error(err);
+        };
       }
 
       if (generatorOrNext.complete) {
-        completeFn = this.__isAsync ? () => { setTimeout(() => generatorOrNext.complete()); } :
-                                      () => { generatorOrNext.complete(); };
+        completeFn = this.__isAsync ? () => {
+          setTimeout(() => generatorOrNext.complete());
+        } : () => {
+          generatorOrNext.complete();
+        };
       }
     } else {
-      schedulerFn = this.__isAsync ? (value: any) => { setTimeout(() => generatorOrNext(value)); } :
-                                     (value: any) => { generatorOrNext(value); };
+      schedulerFn = this.__isAsync ? (value: any) => {
+        setTimeout(() => generatorOrNext(value));
+      } : (value: any) => {
+        generatorOrNext(value);
+      };
 
       if (error) {
-        errorFn =
-            this.__isAsync ? (err) => { setTimeout(() => error(err)); } : (err) => { error(err); };
+        errorFn = this.__isAsync ? (err) => {
+          setTimeout(() => error(err));
+        } : (err) => {
+          error(err);
+        };
       }
 
       if (complete) {
-        completeFn =
-            this.__isAsync ? () => { setTimeout(() => complete()); } : () => { complete(); };
+        completeFn = this.__isAsync ? () => {
+          setTimeout(() => complete());
+        } : () => {
+          complete();
+        };
       }
     }
 
-    return super.subscribe(schedulerFn, errorFn, completeFn);
+    const sink = super.subscribe(schedulerFn, errorFn, completeFn);
+
+    if (generatorOrNext instanceof Subscription) {
+      generatorOrNext.add(sink);
+    }
+
+    return sink;
   }
 }
+
+/**
+ * @publicApi
+ */
+export const EventEmitter: {
+  new (isAsync?: boolean): EventEmitter<any>; new<T>(isAsync?: boolean): EventEmitter<T>;
+  readonly prototype: EventEmitter<any>;
+} = EventEmitter_ as any;

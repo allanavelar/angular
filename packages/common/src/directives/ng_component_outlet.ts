@@ -1,12 +1,13 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ComponentFactoryResolver, ComponentRef, Directive, Injector, Input, NgModuleFactory, NgModuleRef, OnChanges, OnDestroy, Provider, SimpleChanges, Type, ViewContainerRef} from '@angular/core';
+import {ComponentFactoryResolver, ComponentRef, Directive, Injector, Input, NgModuleFactory, NgModuleRef, OnChanges, OnDestroy, SimpleChanges, StaticProvider, Type, ViewContainerRef} from '@angular/core';
+
 
 /**
  * Instantiates a single {@link Component} type and inserts its Host View into current View.
@@ -15,15 +16,14 @@ import {ComponentFactoryResolver, ComponentRef, Directive, Injector, Input, NgMo
  * `NgComponentOutlet` requires a component type, if a falsy value is set the view will clear and
  * any existing component will get destroyed.
  *
+ * @usageNotes
+ *
  * ### Fine tune control
  *
  * You can control the component creation process by using the following optional attributes:
  *
  * * `ngComponentOutletInjector`: Optional custom {@link Injector} that will be used as parent for
  * the Component. Defaults to the injector of the current view container.
- *
- * * `ngComponentOutletProviders`: Optional injectable objects ({@link Provider}) that are visible
- * to the component.
  *
  * * `ngComponentOutletContent`: Optional list of projectable nodes to insert into the content
  * section of the component, if exists.
@@ -52,26 +52,28 @@ import {ComponentFactoryResolver, ComponentRef, Directive, Injector, Input, NgMo
  *                                   ngModuleFactory: moduleFactory;">
  * </ng-container>
  * ```
- * # Example
+ *
+ * ### A simple example
  *
  * {@example common/ngComponentOutlet/ts/module.ts region='SimpleExample'}
  *
  * A more complete example with additional options:
  *
  * {@example common/ngComponentOutlet/ts/module.ts region='CompleteExample'}
-
- * A more complete example with ngModuleFactory:
  *
- * {@example common/ngComponentOutlet/ts/module.ts region='NgModuleFactoryExample'}
- *
- * @experimental
+ * @publicApi
+ * @ngModule CommonModule
  */
 @Directive({selector: '[ngComponentOutlet]'})
 export class NgComponentOutlet implements OnChanges, OnDestroy {
-  @Input() ngComponentOutlet: Type<any>;
-  @Input() ngComponentOutletInjector: Injector;
-  @Input() ngComponentOutletContent: any[][];
-  @Input() ngComponentOutletNgModuleFactory: NgModuleFactory<any>;
+  // TODO(issue/24571): remove '!'.
+  @Input() ngComponentOutlet!: Type<any>;
+  // TODO(issue/24571): remove '!'.
+  @Input() ngComponentOutletInjector!: Injector;
+  // TODO(issue/24571): remove '!'.
+  @Input() ngComponentOutletContent!: any[][];
+  // TODO(issue/24571): remove '!'.
+  @Input() ngComponentOutletNgModuleFactory!: NgModuleFactory<any>;
 
   private _componentRef: ComponentRef<any>|null = null;
   private _moduleRef: NgModuleRef<any>|null = null;

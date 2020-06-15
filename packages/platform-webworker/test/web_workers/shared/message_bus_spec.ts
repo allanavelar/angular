@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -8,19 +8,21 @@
 
 import {NgZone} from '@angular/core';
 import {withModule} from '@angular/core/testing/src/test_bed';
-import {AsyncTestCompleter, MockNgZone, beforeEach, describe, expect, inject, it} from '@angular/core/testing/src/testing_internal';
+import {AsyncTestCompleter, beforeEach, describe, expect, inject, it, MockNgZone} from '@angular/core/testing/src/testing_internal';
 import {MessageBus} from '@angular/platform-webworker/src/web_workers/shared/message_bus';
 
 import {createConnectedMessageBus} from './message_bus_util';
 
-export function main() {
+{
   /**
    * Tests the PostMessageBus
    */
   describe('MessageBus', () => {
     let bus: MessageBus;
 
-    beforeEach(() => { bus = createConnectedMessageBus(); });
+    beforeEach(() => {
+      bus = createConnectedMessageBus();
+    });
 
     it('should pass messages in the same channel from sink to source',
        inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
@@ -115,7 +117,9 @@ export function main() {
      * Flushes pending messages and then runs the given function.
      */
     // TODO(mlaval): timeout is fragile, test to be rewritten
-    function flushMessages(fn: () => void) { setTimeout(fn, 50); }
+    function flushMessages(fn: () => void) {
+      setTimeout(fn, 50);
+    }
 
     it('should buffer messages and wait for the zone to exit before sending',
        withModule({providers: [{provide: NgZone, useClass: MockNgZone}]})
@@ -126,7 +130,11 @@ export function main() {
                  setup(true, zone);
 
                  let wasCalled = false;
-                 bus.from(CHANNEL).subscribe({next: (message: any) => { wasCalled = true; }});
+                 bus.from(CHANNEL).subscribe({
+                   next: (message: any) => {
+                     wasCalled = true;
+                   }
+                 });
                  bus.to(CHANNEL).emit('hi');
 
 
@@ -142,13 +150,17 @@ export function main() {
                }),
        500);
 
-    it('should send messages immediatly when run outside the zone',
+    it('should send messages immediately when run outside the zone',
        inject([AsyncTestCompleter, NgZone], (async: AsyncTestCompleter, zone: MockNgZone) => {
          bus = createConnectedMessageBus();
          setup(false, zone);
 
          let wasCalled = false;
-         bus.from(CHANNEL).subscribe({next: (message: any) => { wasCalled = true; }});
+         bus.from(CHANNEL).subscribe({
+           next: (message: any) => {
+             wasCalled = true;
+           }
+         });
          bus.to(CHANNEL).emit('hi');
 
          flushMessages(() => {

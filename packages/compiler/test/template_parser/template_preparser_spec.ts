@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -11,10 +11,12 @@ import {Element} from '../../src/ml_parser/ast';
 import {HtmlParser} from '../../src/ml_parser/html_parser';
 import {PreparsedElement, PreparsedElementType, preparseElement} from '../../src/template_parser/template_preparser';
 
-export function main() {
+{
   describe('preparseElement', () => {
     let htmlParser: HtmlParser;
-    beforeEach(inject([HtmlParser], (_htmlParser: HtmlParser) => { htmlParser = _htmlParser; }));
+    beforeEach(inject([HtmlParser], (_htmlParser: HtmlParser) => {
+      htmlParser = _htmlParser;
+    }));
 
     function preparse(html: string): PreparsedElement {
       return preparseElement(htmlParser.parse(html, 'TestComp').rootNodes[0] as Element);

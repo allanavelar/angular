@@ -1,35 +1,63 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ɵLifecycleHooks, ɵreflector} from '@angular/core';
+import {CompileReflector} from './compile_reflector';
 
-
-export function hasLifecycleHook(hook: ɵLifecycleHooks, token: any): boolean {
-  return ɵreflector.hasLifecycleHook(token, getHookName(hook));
+export enum LifecycleHooks {
+  OnInit,
+  OnDestroy,
+  DoCheck,
+  OnChanges,
+  AfterContentInit,
+  AfterContentChecked,
+  AfterViewInit,
+  AfterViewChecked
 }
 
-function getHookName(hook: ɵLifecycleHooks): string {
+export const LIFECYCLE_HOOKS_VALUES = [
+  LifecycleHooks.OnInit, LifecycleHooks.OnDestroy, LifecycleHooks.DoCheck, LifecycleHooks.OnChanges,
+  LifecycleHooks.AfterContentInit, LifecycleHooks.AfterContentChecked, LifecycleHooks.AfterViewInit,
+  LifecycleHooks.AfterViewChecked
+];
+
+export function hasLifecycleHook(
+    reflector: CompileReflector, hook: LifecycleHooks, token: any): boolean {
+  return reflector.hasLifecycleHook(token, getHookName(hook));
+}
+
+export function getAllLifecycleHooks(reflector: CompileReflector, token: any): LifecycleHooks[] {
+  return LIFECYCLE_HOOKS_VALUES.filter(hook => hasLifecycleHook(reflector, hook, token));
+}
+
+function getHookName(hook: LifecycleHooks): string {
   switch (hook) {
-    case ɵLifecycleHooks.OnInit:
+    case LifecycleHooks.OnInit:
       return 'ngOnInit';
-    case ɵLifecycleHooks.OnDestroy:
+    case LifecycleHooks.OnDestroy:
       return 'ngOnDestroy';
-    case ɵLifecycleHooks.DoCheck:
+    case LifecycleHooks.DoCheck:
       return 'ngDoCheck';
-    case ɵLifecycleHooks.OnChanges:
+    case LifecycleHooks.OnChanges:
       return 'ngOnChanges';
-    case ɵLifecycleHooks.AfterContentInit:
+    case LifecycleHooks.AfterContentInit:
       return 'ngAfterContentInit';
-    case ɵLifecycleHooks.AfterContentChecked:
+    case LifecycleHooks.AfterContentChecked:
       return 'ngAfterContentChecked';
-    case ɵLifecycleHooks.AfterViewInit:
+    case LifecycleHooks.AfterViewInit:
       return 'ngAfterViewInit';
-    case ɵLifecycleHooks.AfterViewChecked:
+    case LifecycleHooks.AfterViewChecked:
       return 'ngAfterViewChecked';
+    default:
+      // This default case is not needed by TypeScript compiler, as the switch is exhaustive.
+      // However Closure Compiler does not understand that and reports an error in typed mode.
+      // The `throw new Error` below works around the problem, and the unexpected: never variable
+      // makes sure tsc still checks this code is unreachable.
+      const unexpected: never = hook;
+      throw new Error(`unexpected ${unexpected}`);
   }
 }

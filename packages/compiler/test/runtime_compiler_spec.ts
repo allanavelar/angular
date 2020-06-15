@@ -1,16 +1,18 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 import {DirectiveResolver, ResourceLoader} from '@angular/compiler';
-import {Compiler, Component, Injector, NgModule, NgModuleFactory, ɵViewMetadata as ViewMetadata, ɵstringify as stringify} from '@angular/core';
-import {TestBed, async, fakeAsync, inject, tick} from '@angular/core/testing';
+import {Compiler, Component, Injector, NgModule, NgModuleFactory, ɵstringify as stringify} from '@angular/core';
+import {async, fakeAsync, inject, TestBed, tick} from '@angular/core/testing';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
+
 import {MockDirectiveResolver} from '../testing';
+
 import {SpyResourceLoader} from './spies';
 
 @Component({selector: 'child-cmp'})
@@ -25,26 +27,27 @@ class SomeComp {
 class SomeCompWithUrlTemplate {
 }
 
-export function main() {
+{
   describe('RuntimeCompiler', () => {
-
     describe('compilerComponentSync', () => {
       describe('never resolving loader', () => {
         class StubResourceLoader {
-          get(url: string) { return new Promise(() => {}); }
+          get(url: string) {
+            return new Promise(() => {});
+          }
         }
 
         beforeEach(() => {
           TestBed.configureCompiler(
-              {providers: [{provide: ResourceLoader, useClass: StubResourceLoader}]});
+              {providers: [{provide: ResourceLoader, useClass: StubResourceLoader, deps: []}]});
         });
 
         it('should throw when using a templateUrl that has not been compiled before', async(() => {
              TestBed.configureTestingModule({declarations: [SomeCompWithUrlTemplate]});
              TestBed.compileComponents().then(() => {
                expect(() => TestBed.createComponent(SomeCompWithUrlTemplate))
-                   .toThrowError(
-                       `Can't compile synchronously as ${stringify(SomeCompWithUrlTemplate)} is still being loaded!`);
+                   .toThrowError(`Can't compile synchronously as ${
+                       stringify(SomeCompWithUrlTemplate)} is still being loaded!`);
              });
            }));
 
@@ -55,20 +58,22 @@ export function main() {
              TestBed.overrideComponent(SomeComp, {set: {template: '<child-cmp></child-cmp>'}});
              TestBed.compileComponents().then(() => {
                expect(() => TestBed.createComponent(SomeComp))
-                   .toThrowError(
-                       `Can't compile synchronously as ${stringify(ChildComp)} is still being loaded!`);
+                   .toThrowError(`Can't compile synchronously as ${
+                       stringify(ChildComp)} is still being loaded!`);
              });
            });
       });
 
       describe('resolving loader', () => {
         class StubResourceLoader {
-          get(url: string) { return Promise.resolve('hello'); }
+          get(url: string) {
+            return Promise.resolve('hello');
+          }
         }
 
         beforeEach(() => {
           TestBed.configureCompiler(
-              {providers: [{provide: ResourceLoader, useClass: StubResourceLoader}]});
+              {providers: [{provide: ResourceLoader, useClass: StubResourceLoader, deps: []}]});
         });
 
         it('should allow to use templateUrl components that have been loaded before', async(() => {
@@ -89,8 +94,7 @@ export function main() {
     let injector: Injector;
 
     beforeEach(() => {
-      TestBed.configureCompiler(
-          {providers: [{provide: ResourceLoader, useClass: SpyResourceLoader}]});
+      TestBed.configureCompiler({providers: [SpyResourceLoader.PROVIDE]});
     });
 
     beforeEach(fakeAsync(inject(
@@ -113,7 +117,7 @@ export function main() {
            }
 
            resourceLoader.spy('get').and.callFake(() => Promise.resolve('hello'));
-           let ngModuleFactory: NgModuleFactory<any> = undefined !;
+           let ngModuleFactory: NgModuleFactory<any> = undefined!;
            compiler.compileModuleAsync(SomeModule).then((f) => ngModuleFactory = f);
            tick();
            expect(ngModuleFactory.moduleType).toBe(SomeModule);
@@ -129,8 +133,8 @@ export function main() {
 
         resourceLoader.spy('get').and.callFake(() => Promise.resolve(''));
         expect(() => compiler.compileModuleSync(SomeModule))
-            .toThrowError(
-                `Can't compile synchronously as ${stringify(SomeCompWithUrlTemplate)} is still being loaded!`);
+            .toThrowError(`Can't compile synchronously as ${
+                stringify(SomeCompWithUrlTemplate)} is still being loaded!`);
       });
 
       it('should throw when using a templateUrl in a nested component that has not been compiled before',
@@ -140,8 +144,9 @@ export function main() {
            }
 
            resourceLoader.spy('get').and.callFake(() => Promise.resolve(''));
-           dirResolver.setView(SomeComp, new ViewMetadata({template: ''}));
-           dirResolver.setView(ChildComp, new ViewMetadata({templateUrl: '/someTpl.html'}));
+           dirResolver.setDirective(SomeComp, new Component({selector: 'some-cmp', template: ''}));
+           dirResolver.setDirective(
+               ChildComp, new Component({selector: 'child-cmp', templateUrl: '/someTpl.html'}));
            expect(() => compiler.compileModuleSync(SomeModule))
                .toThrowError(
                    `Can't compile synchronously as ${stringify(ChildComp)} is still being loaded!`);

@@ -1,13 +1,13 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 import {WebAnimationsStyleNormalizer} from '../../../src/dsl/style_normalization/web_animations_style_normalizer';
 
-export function main() {
+{
   describe('WebAnimationsStyleNormalizer', () => {
     const normalizer = new WebAnimationsStyleNormalizer();
 
@@ -16,13 +16,13 @@ export function main() {
         expect(normalizer.normalizePropertyName('width', [])).toEqual('width');
         expect(normalizer.normalizePropertyName('border-width', [])).toEqual('borderWidth');
         expect(normalizer.normalizePropertyName('borderHeight', [])).toEqual('borderHeight');
-        expect(normalizer.normalizePropertyName('-webkit-animation', [
-        ])).toEqual('WebkitAnimation');
+        expect(normalizer.normalizePropertyName('-webkit-animation', []))
+            .toEqual('WebkitAnimation');
       });
     });
 
     describe('normalizeStyleValue', () => {
-      function normalize(prop: string, val: string | number): string {
+      function normalize(prop: string, val: string|number): string {
         const errors: string[] = [];
         const result = normalizer.normalizeStyleValue(prop, prop, val, errors);
         if (errors.length) {
@@ -59,6 +59,12 @@ export function main() {
            expect(normalize('borderWidth', 'inherit')).toEqual('inherit');
            expect(normalize('paddingTop', 'calc(500px + 200px)')).toEqual('calc(500px + 200px)');
          });
+
+      it('should allow `perspective` to be a numerical property', () => {
+        expect(normalize('perspective', 10)).toEqual('10px');
+        expect(normalize('perspective', '100pt')).toEqual('100pt');
+        expect(normalize('perspective', 'none')).toEqual('none');
+      });
     });
   });
 }

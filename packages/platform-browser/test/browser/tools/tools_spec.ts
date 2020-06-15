@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -8,17 +8,25 @@
 
 import {disableDebugTools, enableDebugTools} from '@angular/platform-browser';
 
-import {SpyComponentRef, callNgProfilerTimeChangeDetection} from './spies';
+import {callNgProfilerTimeChangeDetection, SpyComponentRef} from './spies';
 
-export function main() {
+{
   describe('profiler', () => {
-    beforeEach(() => { enableDebugTools((<any>new SpyComponentRef())); });
+    if (isNode) return;
+    beforeEach(() => {
+      enableDebugTools((<any>new SpyComponentRef()));
+    });
 
-    afterEach(() => { disableDebugTools(); });
+    afterEach(() => {
+      disableDebugTools();
+    });
 
-    it('should time change detection', () => { callNgProfilerTimeChangeDetection(); });
+    it('should time change detection', () => {
+      callNgProfilerTimeChangeDetection();
+    });
 
-    it('should time change detection with recording',
-       () => { callNgProfilerTimeChangeDetection({'record': true}); });
+    it('should time change detection with recording', () => {
+      callNgProfilerTimeChangeDetection({'record': true});
+    });
   });
 }

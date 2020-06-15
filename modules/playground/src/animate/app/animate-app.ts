@@ -1,12 +1,13 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Component, animate, keyframes, state, style, transition, trigger} from '@angular/core';
+import {animate, keyframes, state, style, transition, trigger} from '@angular/animations';
+import {Component} from '@angular/core';
 
 @Component({
   host: {
@@ -15,7 +16,7 @@ import {Component, animate, keyframes, state, style, transition, trigger} from '
     '(@backgroundAnimation.done)': 'bgStatusChanged($event, "completed")'
   },
   selector: 'animate-app',
-  styleUrls: ['css/animate-app.css'],
+  styleUrls: ['../css/animate-app.css'],
   template: `
     <button (click)="state='start'">Start State</button>
     <button (click)="state='active'">Active State</button>
@@ -86,7 +87,9 @@ export class AnimateApp {
     alert(`backgroundAnimation has ${phase} from ${data['fromState']} to ${data['toState']}`);
   }
 
-  get state() { return this._state; }
+  get state() {
+    return this._state;
+  }
   set state(s) {
     this._state = s;
     if (s == 'void') {

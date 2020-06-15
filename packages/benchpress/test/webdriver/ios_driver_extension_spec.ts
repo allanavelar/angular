@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -8,24 +8,24 @@
 
 import {AsyncTestCompleter, describe, expect, inject, it} from '@angular/core/testing/src/testing_internal';
 
-import {IOsDriverExtension, ReflectiveInjector, WebDriverAdapter, WebDriverExtension} from '../../index';
+import {Injector, IOsDriverExtension, WebDriverAdapter, WebDriverExtension} from '../../index';
 import {TraceEventFactory} from '../trace_event_factory';
 
-export function main() {
+{
   describe('ios driver extension', () => {
     let log: any[];
     let extension: IOsDriverExtension;
 
     const normEvents = new TraceEventFactory('timeline', 'pid0');
 
-    function createExtension(perfRecords: any[] = null): WebDriverExtension {
+    function createExtension(perfRecords: any[]|null = null): WebDriverExtension {
       if (!perfRecords) {
         perfRecords = [];
       }
       log = [];
       extension =
-          ReflectiveInjector
-              .resolveAndCreate([
+          Injector
+              .create([
                 IOsDriverExtension.PROVIDERS,
                 {provide: WebDriverAdapter, useValue: new MockDriverAdapter(log, perfRecords)}
               ])
@@ -63,7 +63,6 @@ export function main() {
        }));
 
     describe('readPerfLog', () => {
-
       it('should execute a dummy script before reading them',
          inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
            // TODO(tbosch): This seems to be a bug in ChromeDriver:
@@ -140,9 +139,7 @@ export function main() {
 
         expect(createExtension().supports({'browserName': 'Safari'})).toBe(true);
       });
-
     });
-
   });
 }
 
@@ -154,7 +151,8 @@ function timeEndRecord(name: string, time: number) {
   return {'type': 'TimeEnd', 'startTime': time, 'data': {'message': name}};
 }
 
-function durationRecord(type: string, startTime: number, endTime: number, children: any[] = null) {
+function durationRecord(
+    type: string, startTime: number, endTime: number, children: any[]|null = null) {
   if (!children) {
     children = [];
   }
@@ -171,14 +169,16 @@ function internalScriptRecord(startTime: number, endTime: number) {
 }
 
 class MockDriverAdapter extends WebDriverAdapter {
-  constructor(private _log: any[], private _perfRecords: any[]) { super(); }
+  constructor(private _log: any[], private _perfRecords: any[]) {
+    super();
+  }
 
   executeScript(script: string) {
     this._log.push(['executeScript', script]);
     return Promise.resolve(null);
   }
 
-  logs(type: string) {
+  logs(type: string): Promise<any[]> {
     this._log.push(['logs', type]);
     if (type === 'performance') {
       return Promise.resolve(this._perfRecords.map(function(record) {
@@ -189,7 +189,7 @@ class MockDriverAdapter extends WebDriverAdapter {
         };
       }));
     } else {
-      return null;
+      return null!;
     }
   }
 }

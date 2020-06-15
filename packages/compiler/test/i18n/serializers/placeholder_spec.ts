@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -8,11 +8,13 @@
 
 import {PlaceholderRegistry} from '../../../src/i18n/serializers/placeholder';
 
-export function main(): void {
+{
   describe('PlaceholderRegistry', () => {
     let reg: PlaceholderRegistry;
 
-    beforeEach(() => { reg = new PlaceholderRegistry(); });
+    beforeEach(() => {
+      reg = new PlaceholderRegistry();
+    });
 
     describe('tag placeholder', () => {
       it('should generate names for well known tags', () => {
@@ -84,7 +86,6 @@ export function main(): void {
         expect(reg.getPlaceholderName('name1', 'content')).toEqual('NAME1');
         expect(reg.getPlaceholderName('name2', 'content')).toEqual('NAME2');
       });
-
     });
   });
 }

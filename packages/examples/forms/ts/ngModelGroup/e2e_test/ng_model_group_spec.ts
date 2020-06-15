@@ -1,13 +1,14 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ElementArrayFinder, browser, by, element} from 'protractor';
-import {verifyNoBrowserErrors} from '../../../../_common/e2e_util';
+import {browser, by, element, ElementArrayFinder} from 'protractor';
+
+import {verifyNoBrowserErrors} from '../../../../test-utils';
 
 describe('ngModelGroup example', () => {
   afterEach(verifyNoBrowserErrors);
@@ -15,7 +16,7 @@ describe('ngModelGroup example', () => {
   let buttons: ElementArrayFinder;
 
   beforeEach(() => {
-    browser.get('/forms/ts/ngModelGroup/index.html');
+    browser.get('/ngModelGroup');
     inputs = element.all(by.css('input'));
     buttons = element.all(by.css('button'));
   });
@@ -38,5 +39,4 @@ describe('ngModelGroup example', () => {
     expect(inputs.get(0).getAttribute('value')).toEqual('Bess');
     expect(inputs.get(1).getAttribute('value')).toEqual('Marvin');
   });
-
 });

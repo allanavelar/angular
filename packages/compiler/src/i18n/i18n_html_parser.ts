@@ -1,18 +1,23 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {MissingTranslationStrategy, ɵConsole as Console} from '@angular/core';
+import {MissingTranslationStrategy} from '../core';
 import {HtmlParser} from '../ml_parser/html_parser';
-import {DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig} from '../ml_parser/interpolation_config';
+import {DEFAULT_INTERPOLATION_CONFIG} from '../ml_parser/interpolation_config';
+import {TokenizeOptions} from '../ml_parser/lexer';
 import {ParseTreeResult} from '../ml_parser/parser';
+import {Console} from '../util';
+
+import {digest} from './digest';
 import {mergeTranslations} from './extractor_merger';
 import {Serializer} from './serializers/serializer';
 import {Xliff} from './serializers/xliff';
+import {Xliff2} from './serializers/xliff2';
 import {Xmb} from './serializers/xmb';
 import {Xtb} from './serializers/xtb';
 import {TranslationBundle} from './translation_bundle';
@@ -31,19 +36,15 @@ export class I18NHtmlParser implements HtmlParser {
       const serializer = createSerializer(translationsFormat);
       this._translationBundle =
           TranslationBundle.load(translations, 'i18n', serializer, missingTranslation, console);
+    } else {
+      this._translationBundle =
+          new TranslationBundle({}, null, digest, undefined, missingTranslation, console);
     }
   }
 
-  parse(
-      source: string, url: string, parseExpansionForms: boolean = false,
-      interpolationConfig: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG): ParseTreeResult {
-    const parseResult =
-        this._htmlParser.parse(source, url, parseExpansionForms, interpolationConfig);
-
-    if (!this._translationBundle) {
-      // Do not enable i18n when no translation bundle is provided
-      return parseResult;
-    }
+  parse(source: string, url: string, options: TokenizeOptions = {}): ParseTreeResult {
+    const interpolationConfig = options.interpolationConfig || DEFAULT_INTERPOLATION_CONFIG;
+    const parseResult = this._htmlParser.parse(source, url, {interpolationConfig, ...options});
 
     if (parseResult.errors.length) {
       return new ParseTreeResult(parseResult.rootNodes, parseResult.errors);
@@ -62,6 +63,9 @@ function createSerializer(format?: string): Serializer {
       return new Xmb();
     case 'xtb':
       return new Xtb();
+    case 'xliff2':
+    case 'xlf2':
+      return new Xliff2();
     case 'xliff':
     case 'xlf':
     default:

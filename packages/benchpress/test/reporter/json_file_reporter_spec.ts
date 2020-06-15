@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -8,9 +8,9 @@
 
 import {AsyncTestCompleter, describe, expect, inject, it} from '@angular/core/testing/src/testing_internal';
 
-import {JsonFileReporter, MeasureValues, Options, ReflectiveInjector, SampleDescription} from '../../index';
+import {Injector, JsonFileReporter, MeasureValues, Options, SampleDescription} from '../../index';
 
-export function main() {
+{
   describe('file reporter', () => {
     let loggedFile: any;
 
@@ -34,7 +34,7 @@ export function main() {
           }
         }
       ];
-      return ReflectiveInjector.resolveAndCreate(providers).get(JsonFileReporter);
+      return Injector.create(providers).get<JsonFileReporter>(JsonFileReporter);
     }
 
     it('should write all data into a file',
@@ -62,16 +62,12 @@ export function main() {
              {'timeStamp': '1970-01-01T00:00:00.000Z', 'runIndex': 0, 'values': {'a': 3, 'b': 6}}
            ],
            'validSample': [
-             {'timeStamp': '1970-01-01T00:00:00.000Z', 'runIndex': 0, 'values': {'a': 3, 'b': 6}}, {
-               'timeStamp': '1970-01-01T00:00:00.001Z',
-               'runIndex': 1,
-               'values': {'a': 5, 'b': 9}
-             }
+             {'timeStamp': '1970-01-01T00:00:00.000Z', 'runIndex': 0, 'values': {'a': 3, 'b': 6}},
+             {'timeStamp': '1970-01-01T00:00:00.001Z', 'runIndex': 1, 'values': {'a': 5, 'b': 9}}
            ]
          });
          async.done();
        }));
-
   });
 }
 

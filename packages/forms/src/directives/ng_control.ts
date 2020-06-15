@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -17,25 +17,74 @@ function unimplemented(): any {
 }
 
 /**
- * A base class that all control directive extend.
- * It binds a {@link FormControl} object to a DOM element.
+ * @description
+ * A base class that all control `FormControl`-based directives extend. It binds a `FormControl`
+ * object to a DOM element.
  *
- * Used internally by Angular forms.
- *
- * @stable
+ * @publicApi
  */
 export abstract class NgControl extends AbstractControlDirective {
-  /** @internal */
-  _parent: ControlContainer = null;
-  name: string = null;
-  valueAccessor: ControlValueAccessor = null;
-  /** @internal */
+  /**
+   * @description
+   * The parent form for the control.
+   *
+   * @internal
+   */
+  _parent: ControlContainer|null = null;
+
+  /**
+   * @description
+   * The name for the control
+   */
+  name: string|number|null = null;
+
+  /**
+   * @description
+   * The value accessor for the control
+   */
+  valueAccessor: ControlValueAccessor|null = null;
+
+  /**
+   * @description
+   * The uncomposed array of synchronous validators for the control
+   *
+   * @internal
+   */
   _rawValidators: Array<Validator|ValidatorFn> = [];
-  /** @internal */
+
+  /**
+   * @description
+   * The uncomposed array of async validators for the control
+   *
+   * @internal
+   */
   _rawAsyncValidators: Array<AsyncValidator|AsyncValidatorFn> = [];
 
-  get validator(): ValidatorFn { return <ValidatorFn>unimplemented(); }
-  get asyncValidator(): AsyncValidatorFn { return <AsyncValidatorFn>unimplemented(); }
+  /**
+   * @description
+   * The registered synchronous validator function for the control
+   *
+   * @throws An exception that this method is not implemented
+   */
+  get validator(): ValidatorFn|null {
+    return <ValidatorFn>unimplemented();
+  }
 
+  /**
+   * @description
+   * The registered async validator function for the control
+   *
+   * @throws An exception that this method is not implemented
+   */
+  get asyncValidator(): AsyncValidatorFn|null {
+    return <AsyncValidatorFn>unimplemented();
+  }
+
+  /**
+   * @description
+   * The callback method to update the model from the view when requested
+   *
+   * @param newValue The new value for the view
+   */
   abstract viewToModelUpdate(newValue: any): void;
 }

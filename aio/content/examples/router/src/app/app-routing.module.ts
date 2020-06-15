@@ -3,12 +3,11 @@
 import { NgModule }             from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 
-import { ComposeMessageComponent }  from './compose-message.component';
-import { PageNotFoundComponent }    from './not-found.component';
+import { ComposeMessageComponent }  from './compose-message/compose-message.component';
+import { PageNotFoundComponent }    from './page-not-found/page-not-found.component';
 
-import { CanDeactivateGuard }       from './can-deactivate-guard.service';
-import { AuthGuard }                from './auth-guard.service';
-import { SelectivePreloadingStrategy } from './selective-preloading-strategy';
+import { AuthGuard }                          from './auth/auth.guard';
+import { SelectivePreloadingStrategyService } from './selective-preloading-strategy.service';
 
 const appRoutes: Routes = [
   {
@@ -18,17 +17,17 @@ const appRoutes: Routes = [
   },
   {
     path: 'admin',
-    loadChildren: 'app/admin/admin.module#AdminModule',
+    loadChildren: () => import('./admin/admin.module').then(m => m.AdminModule),
     canLoad: [AuthGuard]
   },
   // #docregion preload-v2
   {
     path: 'crisis-center',
-    loadChildren: 'app/crisis-center/crisis-center.module#CrisisCenterModule',
+    loadChildren: () => import('./crisis-center/crisis-center.module').then(m => m.CrisisCenterModule),
     data: { preload: true }
   },
   // #enddocregion preload-v2
-  { path: '',   redirectTo: '/heroes', pathMatch: 'full' },
+  { path: '',   redirectTo: '/superheroes', pathMatch: 'full' },
   { path: '**', component: PageNotFoundComponent }
 ];
 
@@ -36,15 +35,14 @@ const appRoutes: Routes = [
   imports: [
     RouterModule.forRoot(
       appRoutes,
-      { preloadingStrategy: SelectivePreloadingStrategy }
+      {
+        enableTracing: false, // <-- debugging purposes only
+        preloadingStrategy: SelectivePreloadingStrategyService,
+      }
     )
   ],
   exports: [
     RouterModule
-  ],
-  providers: [
-    CanDeactivateGuard,
-    SelectivePreloadingStrategy
   ]
 })
 export class AppRoutingModule { }

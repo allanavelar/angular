@@ -2,9 +2,9 @@
 import { NgModule }              from '@angular/core';
 import { RouterModule, Routes }  from '@angular/router';
 
-import { ComposeMessageComponent } from './compose-message.component';
-import { CanDeactivateGuard }      from './can-deactivate-guard.service';
-import { PageNotFoundComponent }   from './not-found.component';
+import { ComposeMessageComponent } from './compose-message/compose-message.component';
+import { CanDeactivateGuard }      from './can-deactivate.guard';
+import { PageNotFoundComponent }   from './page-not-found/page-not-found.component';
 
 const appRoutes: Routes = [
   {
@@ -18,13 +18,13 @@ const appRoutes: Routes = [
 
 @NgModule({
   imports: [
-    RouterModule.forRoot(appRoutes)
+    RouterModule.forRoot(
+      appRoutes,
+      { enableTracing: true } // <-- debugging purposes only
+    )
   ],
   exports: [
     RouterModule
-  ],
-  providers: [
-    CanDeactivateGuard
   ]
 })
 export class AppRoutingModule {}

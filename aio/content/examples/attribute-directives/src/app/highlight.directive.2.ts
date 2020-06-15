@@ -1,10 +1,13 @@
 /* tslint:disable:no-unused-variable member-ordering */
 // #docplaster
+// #docregion imports,
+import { Directive, ElementRef, HostListener } from '@angular/core';
+// #enddocregion imports,
+import { Input } from '@angular/core';
 // #docregion
-import { Directive, ElementRef, HostListener, Input } from '@angular/core';
 
 @Directive({
-  selector: '[myHighlight]'
+  selector: '[appHighlight]'
 })
 export class HighlightDirective {
   // #docregion ctor
@@ -28,14 +31,16 @@ export class HighlightDirective {
   private highlight(color: string) {
     this.el.nativeElement.style.backgroundColor = color;
   }
-  // #enddocregion mouse-methods, 
+  // #enddocregion mouse-methods,
 
   // #docregion color
   @Input() highlightColor: string;
   // #enddocregion color
 
   // #docregion color-2
-  @Input() myHighlight: string;
+  @Input() appHighlight: string;
   // #enddocregion color-2
-}
 
+// #docregion
+}
+// #enddocregion

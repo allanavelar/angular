@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -9,6 +9,7 @@
 import {PipeResolver} from '@angular/compiler/src/pipe_resolver';
 import {ɵstringify as stringify} from '@angular/core';
 import {Pipe} from '@angular/core/src/metadata';
+import {JitReflector} from '@angular/platform-browser-dynamic/src/compiler_reflector';
 
 @Pipe({name: 'somePipe', pure: true})
 class SomePipe {
@@ -16,11 +17,13 @@ class SomePipe {
 
 class SimpleClass {}
 
-export function main() {
+{
   describe('PipeResolver', () => {
     let resolver: PipeResolver;
 
-    beforeEach(() => { resolver = new PipeResolver(); });
+    beforeEach(() => {
+      resolver = new PipeResolver(new JitReflector());
+    });
 
     it('should read out the metadata from the class', () => {
       const moduleMetadata = resolver.resolve(SomePipe);
@@ -47,6 +50,5 @@ export function main() {
 
       expect(resolver.resolve(ChildWithDecorator)).toEqual(new Pipe({name: 'c'}));
     });
-
   });
 }

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -22,7 +22,13 @@ import {formatStats, sortedProps} from './util';
 @Injectable()
 export class JsonFileReporter extends Reporter {
   static PATH = new InjectionToken('JsonFileReporter.path');
-  static PROVIDERS = [JsonFileReporter, {provide: JsonFileReporter.PATH, useValue: '.'}];
+  static PROVIDERS = [
+    {
+      provide: JsonFileReporter,
+      deps: [SampleDescription, JsonFileReporter.PATH, Options.WRITE_FILE, Options.NOW]
+    },
+    {provide: JsonFileReporter.PATH, useValue: '.'}
+  ];
 
   constructor(
       private _description: SampleDescription, @Inject(JsonFileReporter.PATH) private _path: string,
@@ -31,7 +37,9 @@ export class JsonFileReporter extends Reporter {
     super();
   }
 
-  reportMeasureValues(measureValues: MeasureValues): Promise<any> { return Promise.resolve(null); }
+  reportMeasureValues(measureValues: MeasureValues): Promise<any> {
+    return Promise.resolve(null);
+  }
 
   reportSample(completeSample: MeasureValues[], validSample: MeasureValues[]): Promise<any> {
     const stats: {[key: string]: string} = {};

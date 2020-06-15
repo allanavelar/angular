@@ -1,20 +1,27 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Directive, EventEmitter, Inject, Input, OnChanges, Optional, Output, Self, SimpleChanges, forwardRef} from '@angular/core';
+import {Directive, EventEmitter, forwardRef, Inject, InjectionToken, Input, OnChanges, Optional, Output, Self, SimpleChanges} from '@angular/core';
 
 import {FormControl} from '../../model';
 import {NG_ASYNC_VALIDATORS, NG_VALIDATORS} from '../../validators';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '../control_value_accessor';
 import {NgControl} from '../ng_control';
 import {ReactiveErrors} from '../reactive_errors';
-import {composeAsyncValidators, composeValidators, isPropertyUpdated, selectValueAccessor, setUpControl} from '../shared';
+import {_ngModelWarning, composeAsyncValidators, composeValidators, isPropertyUpdated, selectValueAccessor, setUpControl} from '../shared';
 import {AsyncValidator, AsyncValidatorFn, Validator, ValidatorFn} from '../validators';
+
+
+/**
+ * Token to provide to turn off the ngModel warning on formControl and formControlName.
+ */
+export const NG_MODEL_WITH_FORM_CONTROL_WARNING =
+    new InjectionToken('NgModelWithFormControlWarning');
 
 export const formControlBinding: any = {
   provide: NgControl,
@@ -22,99 +29,160 @@ export const formControlBinding: any = {
 };
 
 /**
- * @whatItDoes Syncs a standalone {@link FormControl} instance to a form control element.
+ * @description
+ * Synchronizes a standalone `FormControl` instance to a form control element.
  *
- * In other words, this directive ensures that any values written to the {@link FormControl}
- * instance programmatically will be written to the DOM element (model -> view). Conversely,
- * any values written to the DOM element through user input will be reflected in the
- * {@link FormControl} instance (view -> model).
+ * Note that support for using the `ngModel` input property and `ngModelChange` event with reactive
+ * form directives was deprecated in Angular v6 and is scheduled for removal in
+ * a future version of Angular.
+ * For details, see [Deprecated features](guide/deprecations#ngmodel-with-reactive-forms).
  *
- * @howToUse
+ * @see [Reactive Forms Guide](guide/reactive-forms)
+ * @see `FormControl`
+ * @see `AbstractControl`
  *
- * Use this directive if you'd like to create and manage a {@link FormControl} instance directly.
- * Simply create a {@link FormControl}, save it to your component class, and pass it into the
- * {@link FormControlDirective}.
+ * @usageNotes
  *
- * This directive is designed to be used as a standalone control.  Unlike {@link FormControlName},
- * it does not require that your {@link FormControl} instance be part of any parent
- * {@link FormGroup}, and it won't be registered to any {@link FormGroupDirective} that
- * exists above it.
- *
- * **Get the value**: the `value` property is always synced and available on the
- * {@link FormControl} instance. See a full list of available properties in
- * {@link AbstractControl}.
- *
- * **Set the value**: You can pass in an initial value when instantiating the {@link FormControl},
- * or you can set it programmatically later using {@link AbstractControl.setValue} or
- * {@link AbstractControl.patchValue}.
- *
- * **Listen to value**: If you want to listen to changes in the value of the control, you can
- * subscribe to the {@link AbstractControl.valueChanges} event.  You can also listen to
- * {@link AbstractControl.statusChanges} to be notified when the validation status is
- * re-calculated.
- *
- * ### Example
+ * The following example shows how to register a standalone control and set its value.
  *
  * {@example forms/ts/simpleFormControl/simple_form_control_example.ts region='Component'}
  *
- * * **npm package**: `@angular/forms`
- *
- * * **NgModule**: `ReactiveFormsModule`
- *
- *  @stable
+ * @ngModule ReactiveFormsModule
+ * @publicApi
  */
 @Directive({selector: '[formControl]', providers: [formControlBinding], exportAs: 'ngForm'})
 
 export class FormControlDirective extends NgControl implements OnChanges {
+  /**
+   * @description
+   * Internal reference to the view model value.
+   */
   viewModel: any;
 
-  @Input('formControl') form: FormControl;
+  /**
+   * @description
+   * Tracks the `FormControl` instance bound to the directive.
+   */
+  // TODO(issue/24571): remove '!'.
+  @Input('formControl') form!: FormControl;
+
+  /**
+   * @description
+   * Triggers a warning that this input should not be used with reactive forms.
+   */
+  @Input('disabled')
+  set isDisabled(isDisabled: boolean) {
+    ReactiveErrors.disabledAttrWarning();
+  }
+
+  // TODO(kara): remove next 4 properties once deprecation period is over
+
+  /** @deprecated as of v6 */
   @Input('ngModel') model: any;
+
+  /** @deprecated as of v6 */
   @Output('ngModelChange') update = new EventEmitter();
 
-  @Input('disabled')
-  set isDisabled(isDisabled: boolean) { ReactiveErrors.disabledAttrWarning(); }
+  /**
+   * @description
+   * Static property used to track whether any ngModel warnings have been sent across
+   * all instances of FormControlDirective. Used to support warning config of "once".
+   *
+   * @internal
+   */
+  static _ngModelWarningSentOnce = false;
 
-  constructor(@Optional() @Self() @Inject(NG_VALIDATORS) validators: Array<Validator|ValidatorFn>,
-              @Optional() @Self() @Inject(NG_ASYNC_VALIDATORS) asyncValidators: Array<AsyncValidator|AsyncValidatorFn>,
-              @Optional() @Self() @Inject(NG_VALUE_ACCESSOR)
-              valueAccessors: ControlValueAccessor[]) {
-                super();
-                this._rawValidators = validators || [];
-                this._rawAsyncValidators = asyncValidators || [];
-                this.valueAccessor = selectValueAccessor(this, valueAccessors);
-              }
+  /**
+   * @description
+   * Instance property used to track whether an ngModel warning has been sent out for this
+   * particular `FormControlDirective` instance. Used to support warning config of "always".
+   *
+   * @internal
+   */
+  _ngModelWarningSent = false;
 
-              ngOnChanges(changes: SimpleChanges): void {
-                if (this._isControlChanged(changes)) {
-                  setUpControl(this.form, this);
-                  if (this.control.disabled && this.valueAccessor.setDisabledState) {
-                    this.valueAccessor.setDisabledState(true);
-                  }
-                  this.form.updateValueAndValidity({emitEvent: false});
-                }
-                if (isPropertyUpdated(changes, this.viewModel)) {
-                  this.form.setValue(this.model);
-                  this.viewModel = this.model;
-                }
-              }
+  constructor(
+      @Optional() @Self() @Inject(NG_VALIDATORS) validators: Array<Validator|ValidatorFn>,
+      @Optional() @Self() @Inject(NG_ASYNC_VALIDATORS) asyncValidators:
+          Array<AsyncValidator|AsyncValidatorFn>,
+      @Optional() @Self() @Inject(NG_VALUE_ACCESSOR) valueAccessors: ControlValueAccessor[],
+      @Optional() @Inject(NG_MODEL_WITH_FORM_CONTROL_WARNING) private _ngModelWarningConfig: string|
+      null) {
+    super();
+    this._rawValidators = validators || [];
+    this._rawAsyncValidators = asyncValidators || [];
+    this.valueAccessor = selectValueAccessor(this, valueAccessors);
+  }
 
-              get path(): string[] { return []; }
+  /**
+   * @description
+   * A lifecycle method called when the directive's inputs change. For internal use
+   * only.
+   *
+   * @param changes A object of key/value pairs for the set of changed inputs.
+   */
+  ngOnChanges(changes: SimpleChanges): void {
+    if (this._isControlChanged(changes)) {
+      setUpControl(this.form, this);
+      if (this.control.disabled && this.valueAccessor!.setDisabledState) {
+        this.valueAccessor!.setDisabledState!(true);
+      }
+      this.form.updateValueAndValidity({emitEvent: false});
+    }
+    if (isPropertyUpdated(changes, this.viewModel)) {
+      _ngModelWarning('formControl', FormControlDirective, this, this._ngModelWarningConfig);
+      this.form.setValue(this.model);
+      this.viewModel = this.model;
+    }
+  }
 
-              get validator(): ValidatorFn { return composeValidators(this._rawValidators); }
+  /**
+   * @description
+   * Returns an array that represents the path from the top-level form to this control.
+   * Each index is the string name of the control on that level.
+   */
+  get path(): string[] {
+    return [];
+  }
 
-              get asyncValidator(): AsyncValidatorFn {
-                return composeAsyncValidators(this._rawAsyncValidators);
-              }
+  /**
+   * @description
+   * Synchronous validator function composed of all the synchronous validators
+   * registered with this directive.
+   */
+  get validator(): ValidatorFn|null {
+    return composeValidators(this._rawValidators);
+  }
 
-              get control(): FormControl { return this.form; }
+  /**
+   * @description
+   * Async validator function composed of all the async validators registered with this
+   * directive.
+   */
+  get asyncValidator(): AsyncValidatorFn|null {
+    return composeAsyncValidators(this._rawAsyncValidators);
+  }
 
-              viewToModelUpdate(newValue: any): void {
-                this.viewModel = newValue;
-                this.update.emit(newValue);
-              }
+  /**
+   * @description
+   * The `FormControl` bound to this directive.
+   */
+  get control(): FormControl {
+    return this.form;
+  }
 
-              private _isControlChanged(changes: {[key: string]: any}): boolean {
-                return changes.hasOwnProperty('form');
-              }
+  /**
+   * @description
+   * Sets the new value for the view model and emits an `ngModelChange` event.
+   *
+   * @param newValue The new value for the view model.
+   */
+  viewToModelUpdate(newValue: any): void {
+    this.viewModel = newValue;
+    this.update.emit(newValue);
+  }
+
+  private _isControlChanged(changes: {[key: string]: any}): boolean {
+    return changes.hasOwnProperty('form');
+  }
 }

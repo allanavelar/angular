@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -10,7 +10,7 @@ import './init';
 import {ComponentUsingThirdParty} from '../src/comp_using_3rdp';
 import {ComponentUsingFlatModule} from '../src/comp_using_flat_module';
 import {MainModule} from '../src/module';
-import {CompUsingLibModuleDirectiveAndPipe, CompUsingRootModuleDirectiveAndPipe, SOME_TOKEN, ServiceUsingLibModule, SomeLibModule, SomeService} from '../src/module_fixtures';
+import {CompUsingLibModuleDirectiveAndPipe, CompUsingRootModuleDirectiveAndPipe, ServiceUsingLibModule, SOME_TOKEN, SomeLibModule, SomeService} from '../src/module_fixtures';
 
 import {createComponent, createModule} from './util';
 
@@ -49,7 +49,7 @@ describe('NgModule', () => {
       // https://github.com/angular/angular/issues/15221
       const fixture = createComponent(ComponentUsingFlatModule);
       const bundleComp = fixture.nativeElement.children;
-      expect(bundleComp[0].children[0].children[0].data).toEqual('flat module component');
+      expect(bundleComp[0].children[0].textContent).toEqual('flat module component');
     });
   });
 
@@ -58,8 +58,9 @@ describe('NgModule', () => {
     it('should support third party entryComponents components', () => {
       const fixture = createComponent(ComponentUsingThirdParty);
       const thirdPComps = fixture.nativeElement.children;
-      expect(thirdPComps[0].children[0].children[0].data).toEqual('3rdP-component');
-      expect(thirdPComps[1].children[0].children[0].data).toEqual('other-3rdP-component');
+      expect(thirdPComps[0].children[0].textContent).toEqual('3rdP-component');
+      expect(thirdPComps[1].children[0].textContent).toEqual(`other-3rdP-component
+multi-lines`);
     });
 
     // https://github.com/angular/angular/issues/12428

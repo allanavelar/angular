@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -9,9 +9,8 @@
 import {ParseError, ParseSourceSpan} from '../parse_util';
 
 import * as html from './ast';
-import {DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig} from './interpolation_config';
 import * as lex from './lexer';
-import {TagDefinition, getNsPrefix, mergeNsAndName} from './tags';
+import {getNsPrefix, isNgContainer, mergeNsAndName, TagDefinition} from './tags';
 
 export class TreeError extends ParseError {
   static create(elementName: string|null, span: ParseSourceSpan, msg: string): TreeError {
@@ -30,35 +29,32 @@ export class ParseTreeResult {
 export class Parser {
   constructor(public getTagDefinition: (tagName: string) => TagDefinition) {}
 
-  parse(
-      source: string, url: string, parseExpansionForms: boolean = false,
-      interpolationConfig: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG): ParseTreeResult {
-    const tokensAndErrors =
-        lex.tokenize(source, url, this.getTagDefinition, parseExpansionForms, interpolationConfig);
-
-    const treeAndErrors = new _TreeBuilder(tokensAndErrors.tokens, this.getTagDefinition).build();
-
+  parse(source: string, url: string, options?: lex.TokenizeOptions): ParseTreeResult {
+    const tokenizeResult = lex.tokenize(source, url, this.getTagDefinition, options);
+    const parser = new _TreeBuilder(tokenizeResult.tokens, this.getTagDefinition);
+    parser.build();
     return new ParseTreeResult(
-        treeAndErrors.rootNodes,
-        (<ParseError[]>tokensAndErrors.errors).concat(treeAndErrors.errors));
+        parser.rootNodes,
+        (tokenizeResult.errors as ParseError[]).concat(parser.errors),
+    );
   }
 }
 
 class _TreeBuilder {
   private _index: number = -1;
-  private _peek: lex.Token;
-
-  private _rootNodes: html.Node[] = [];
-  private _errors: TreeError[] = [];
-
+  // `_peek` will be initialized by the call to `advance()` in the constructor.
+  private _peek!: lex.Token;
   private _elementStack: html.Element[] = [];
+
+  rootNodes: html.Node[] = [];
+  errors: TreeError[] = [];
 
   constructor(
       private tokens: lex.Token[], private getTagDefinition: (tagName: string) => TagDefinition) {
     this._advance();
   }
 
-  build(): ParseTreeResult {
+  build(): void {
     while (this._peek.type !== lex.TokenType.EOF) {
       if (this._peek.type === lex.TokenType.TAG_OPEN_START) {
         this._consumeStartTag(this._advance());
@@ -82,7 +78,6 @@ class _TreeBuilder {
         this._advance();
       }
     }
-    return new ParseTreeResult(this._rootNodes, this._errors);
   }
 
   private _advance(): lex.Token {
@@ -102,7 +97,7 @@ class _TreeBuilder {
     return null;
   }
 
-  private _consumeCdata(startToken: lex.Token) {
+  private _consumeCdata(_startToken: lex.Token) {
     this._consumeText(this._advance());
     this._advanceIf(lex.TokenType.CDATA_END);
   }
@@ -129,7 +124,7 @@ class _TreeBuilder {
 
     // read the final }
     if (this._peek.type !== lex.TokenType.EXPANSION_FORM_END) {
-      this._errors.push(
+      this.errors.push(
           TreeError.create(null, this._peek.sourceSpan, `Invalid ICU message. Missing '}'.`));
       return;
     }
@@ -145,7 +140,7 @@ class _TreeBuilder {
 
     // read {
     if (this._peek.type !== lex.TokenType.EXPANSION_CASE_EXP_START) {
-      this._errors.push(
+      this.errors.push(
           TreeError.create(null, this._peek.sourceSpan, `Invalid ICU message. Missing '{'.`));
       return null;
     }
@@ -160,16 +155,17 @@ class _TreeBuilder {
     exp.push(new lex.Token(lex.TokenType.EOF, [], end.sourceSpan));
 
     // parse everything in between { and }
-    const parsedExp = new _TreeBuilder(exp, this.getTagDefinition).build();
-    if (parsedExp.errors.length > 0) {
-      this._errors = this._errors.concat(<TreeError[]>parsedExp.errors);
+    const expansionCaseParser = new _TreeBuilder(exp, this.getTagDefinition);
+    expansionCaseParser.build();
+    if (expansionCaseParser.errors.length > 0) {
+      this.errors = this.errors.concat(expansionCaseParser.errors);
       return null;
     }
 
     const sourceSpan = new ParseSourceSpan(value.sourceSpan.start, end.sourceSpan.end);
     const expSourceSpan = new ParseSourceSpan(start.sourceSpan.start, end.sourceSpan.end);
     return new html.ExpansionCase(
-        value.parts[0], parsedExp.rootNodes, sourceSpan, value.sourceSpan, expSourceSpan);
+        value.parts[0], expansionCaseParser.rootNodes, sourceSpan, value.sourceSpan, expSourceSpan);
   }
 
   private _collectExpansionExpTokens(start: lex.Token): lex.Token[]|null {
@@ -188,7 +184,7 @@ class _TreeBuilder {
           if (expansionFormStack.length == 0) return exp;
 
         } else {
-          this._errors.push(
+          this.errors.push(
               TreeError.create(null, start.sourceSpan, `Invalid ICU message. Missing '}'.`));
           return null;
         }
@@ -198,14 +194,14 @@ class _TreeBuilder {
         if (lastOnStack(expansionFormStack, lex.TokenType.EXPANSION_FORM_START)) {
           expansionFormStack.pop();
         } else {
-          this._errors.push(
+          this.errors.push(
               TreeError.create(null, start.sourceSpan, `Invalid ICU message. Missing '}'.`));
           return null;
         }
       }
 
       if (this._peek.type === lex.TokenType.EOF) {
-        this._errors.push(
+        this.errors.push(
             TreeError.create(null, start.sourceSpan, `Invalid ICU message. Missing '}'.`));
         return null;
       }
@@ -230,12 +226,9 @@ class _TreeBuilder {
   }
 
   private _closeVoidElement(): void {
-    if (this._elementStack.length > 0) {
-      const el = this._elementStack[this._elementStack.length - 1];
-
-      if (this.getTagDefinition(el.name).isVoid) {
-        this._elementStack.pop();
-      }
+    const el = this._getParentElement();
+    if (el && this.getTagDefinition(el.name).isVoid) {
+      this._elementStack.pop();
     }
   }
 
@@ -255,7 +248,7 @@ class _TreeBuilder {
       selfClosing = true;
       const tagDef = this.getTagDefinition(fullName);
       if (!(tagDef.canSelfClose || getNsPrefix(fullName) !== null || tagDef.isVoid)) {
-        this._errors.push(TreeError.create(
+        this.errors.push(TreeError.create(
             fullName, startTagToken.sourceSpan,
             `Only void and foreign elements can be self closed "${startTagToken.parts[1]}"`));
       }
@@ -274,20 +267,10 @@ class _TreeBuilder {
   }
 
   private _pushElement(el: html.Element) {
-    if (this._elementStack.length > 0) {
-      const parentEl = this._elementStack[this._elementStack.length - 1];
-      if (this.getTagDefinition(parentEl.name).isClosedByChild(el.name)) {
-        this._elementStack.pop();
-      }
-    }
+    const parentEl = this._getParentElement();
 
-    const tagDef = this.getTagDefinition(el.name);
-    const {parent, container} = this._getParentElementSkippingContainers();
-
-    if (parent && tagDef.requireExtraParent(parent.name)) {
-      const newParent = new html.Element(
-          tagDef.parentToAdd, [], [], el.sourceSpan, el.startSourceSpan, el.endSourceSpan);
-      this._insertBeforeContainer(parent, container, newParent);
+    if (parentEl && this.getTagDefinition(parentEl.name).isClosedByChild(el.name)) {
+      this._elementStack.pop();
     }
 
     this._addToParent(el);
@@ -299,17 +282,17 @@ class _TreeBuilder {
         endTagToken.parts[0], endTagToken.parts[1], this._getParentElement());
 
     if (this._getParentElement()) {
-      this._getParentElement() !.endSourceSpan = endTagToken.sourceSpan;
+      this._getParentElement()!.endSourceSpan = endTagToken.sourceSpan;
     }
 
     if (this.getTagDefinition(fullName).isVoid) {
-      this._errors.push(TreeError.create(
+      this.errors.push(TreeError.create(
           fullName, endTagToken.sourceSpan,
           `Void elements do not have end tags "${endTagToken.parts[1]}"`));
     } else if (!this._popElement(fullName)) {
-      const errMsg =
-          `Unexpected closing tag "${fullName}". It may happen when the tag has already been closed by another tag. For more info see https://www.w3.org/TR/html5/syntax.html#closing-elements-that-have-implied-end-tags`;
-      this._errors.push(TreeError.create(fullName, endTagToken.sourceSpan, errMsg));
+      const errMsg = `Unexpected closing tag "${
+          fullName}". It may happen when the tag has already been closed by another tag. For more info see https://www.w3.org/TR/html5/syntax.html#closing-elements-that-have-implied-end-tags`;
+      this.errors.push(TreeError.create(fullName, endTagToken.sourceSpan, errMsg));
     }
   }
 
@@ -332,12 +315,19 @@ class _TreeBuilder {
     const fullName = mergeNsAndName(attrName.parts[0], attrName.parts[1]);
     let end = attrName.sourceSpan.end;
     let value = '';
-    let valueSpan: ParseSourceSpan = undefined !;
+    let valueSpan: ParseSourceSpan = undefined!;
+    if (this._peek.type === lex.TokenType.ATTR_QUOTE) {
+      this._advance();
+    }
     if (this._peek.type === lex.TokenType.ATTR_VALUE) {
       const valueToken = this._advance();
       value = valueToken.parts[0];
       end = valueToken.sourceSpan.end;
       valueSpan = valueToken.sourceSpan;
+    }
+    if (this._peek.type === lex.TokenType.ATTR_QUOTE) {
+      const quoteToken = this._advance();
+      end = quoteToken.sourceSpan.end;
     }
     return new html.Attribute(
         fullName, value, new ParseSourceSpan(attrName.sourceSpan.start, end), valueSpan);
@@ -352,17 +342,18 @@ class _TreeBuilder {
    *
    * `<ng-container>` elements are skipped as they are not rendered as DOM element.
    */
-  private _getParentElementSkippingContainers(): {parent: html.Element, container: html.Element} {
-    let container: html.Element = null !;
+  private _getParentElementSkippingContainers():
+      {parent: html.Element|null, container: html.Element|null} {
+    let container: html.Element|null = null;
 
     for (let i = this._elementStack.length - 1; i >= 0; i--) {
-      if (this._elementStack[i].name !== 'ng-container') {
+      if (!isNgContainer(this._elementStack[i].name)) {
         return {parent: this._elementStack[i], container};
       }
       container = this._elementStack[i];
     }
 
-    return {parent: this._elementStack[this._elementStack.length - 1], container};
+    return {parent: null, container};
   }
 
   private _addToParent(node: html.Node) {
@@ -370,7 +361,7 @@ class _TreeBuilder {
     if (parent != null) {
       parent.children.push(node);
     } else {
-      this._rootNodes.push(node);
+      this.rootNodes.push(node);
     }
   }
 
@@ -382,7 +373,7 @@ class _TreeBuilder {
    * @internal
    */
   private _insertBeforeContainer(
-      parent: html.Element, container: html.Element, node: html.Element) {
+      parent: html.Element, container: html.Element|null, node: html.Element) {
     if (!container) {
       this._addToParent(node);
       this._elementStack.push(node);
@@ -392,7 +383,7 @@ class _TreeBuilder {
         const index = parent.children.indexOf(container);
         parent.children[index] = node;
       } else {
-        this._rootNodes.push(node);
+        this.rootNodes.push(node);
       }
       node.children.push(container);
       this._elementStack.splice(this._elementStack.indexOf(container), 0, node);
@@ -401,9 +392,9 @@ class _TreeBuilder {
 
   private _getElementFullName(prefix: string, localName: string, parentElement: html.Element|null):
       string {
-    if (prefix == null) {
-      prefix = this.getTagDefinition(localName).implicitNamespacePrefix !;
-      if (prefix == null && parentElement != null) {
+    if (prefix === '') {
+      prefix = this.getTagDefinition(localName).implicitNamespacePrefix || '';
+      if (prefix === '' && parentElement != null) {
         prefix = getNsPrefix(parentElement.name);
       }
     }

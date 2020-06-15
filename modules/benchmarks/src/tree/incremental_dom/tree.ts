@@ -1,19 +1,25 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 import {TreeNode} from '../util';
+
+// We load "IncrementalDOM" as a AMD global because the "incremental-dom" NPM package does not
+// come with a named UMD module, and it's easier to just import the AMD file and use it globally.
+declare const IncrementalDOM: any;
 const {patch, elementOpen, elementClose, elementOpenStart, elementOpenEnd, text, attr} =
-    require('incremental-dom');
+    IncrementalDOM;
 
 export class TreeComponent {
   constructor(private _rootEl: any) {}
 
-  set data(data: TreeNode) { patch(this._rootEl, () => this._render(data)); }
+  set data(data: TreeNode) {
+    patch(this._rootEl, () => this._render(data));
+  }
 
   private _render(data: TreeNode) {
     elementOpenStart('span', '', null);

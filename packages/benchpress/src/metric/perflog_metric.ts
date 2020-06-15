@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -19,11 +19,22 @@ import {PerfLogEvent, PerfLogFeatures, WebDriverExtension} from '../web_driver_e
 @Injectable()
 export class PerflogMetric extends Metric {
   static SET_TIMEOUT = new InjectionToken('PerflogMetric.setTimeout');
+  static IGNORE_NAVIGATION = new InjectionToken('PerflogMetric.ignoreNavigation');
   static PROVIDERS = [
-    PerflogMetric, {
+    {
+      provide: PerflogMetric,
+      deps:
+          [
+            WebDriverExtension, PerflogMetric.SET_TIMEOUT, Options.MICRO_METRICS, Options.FORCE_GC,
+            Options.CAPTURE_FRAMES, Options.RECEIVED_DATA, Options.REQUEST_COUNT,
+            PerflogMetric.IGNORE_NAVIGATION
+          ]
+    },
+    {
       provide: PerflogMetric.SET_TIMEOUT,
       useValue: (fn: Function, millis: number) => <any>setTimeout(fn, millis)
-    }
+    },
+    {provide: PerflogMetric.IGNORE_NAVIGATION, useValue: false}
   ];
 
   private _remainingEvents: PerfLogEvent[];
@@ -34,6 +45,8 @@ export class PerflogMetric extends Metric {
    * @param driverExtension
    * @param setTimeout
    * @param microMetrics Name and description of metrics provided via console.time / console.timeEnd
+   * @param ignoreNavigation If true, don't measure from navigationStart events. These events are
+   *   usually triggered by a page load, but can also be triggered when adding iframes to the DOM.
    **/
   constructor(
       private _driverExtension: WebDriverExtension,
@@ -42,7 +55,8 @@ export class PerflogMetric extends Metric {
       @Inject(Options.FORCE_GC) private _forceGc: boolean,
       @Inject(Options.CAPTURE_FRAMES) private _captureFrames: boolean,
       @Inject(Options.RECEIVED_DATA) private _receivedData: boolean,
-      @Inject(Options.REQUEST_COUNT) private _requestCount: boolean) {
+      @Inject(Options.REQUEST_COUNT) private _requestCount: boolean,
+      @Inject(PerflogMetric.IGNORE_NAVIGATION) private _ignoreNavigation: boolean) {
     super();
 
     this._remainingEvents = [];
@@ -140,11 +154,11 @@ export class PerflogMetric extends Metric {
     const markName = this._markName(this._measureCount - 1);
     const nextMarkName = restart ? this._markName(this._measureCount++) : null;
     return this._driverExtension.timeEnd(markName, nextMarkName)
-        .then((_) => this._readUntilEndMark(markName));
+        .then((_: any) => this._readUntilEndMark(markName));
   }
 
   private _readUntilEndMark(
-      markName: string, loopCount: number = 0, startEvent: PerfLogEvent = null) {
+      markName: string, loopCount: number = 0, startEvent: PerfLogEvent|null = null) {
     if (loopCount > _MAX_RETRY_COUNT) {
       throw new Error(`Tried too often to get the ending mark: ${loopCount}`);
     }
@@ -156,7 +170,9 @@ export class PerflogMetric extends Metric {
         return result;
       }
       let resolve: (result: any) => void;
-      const promise = new Promise(res => { resolve = res; });
+      const promise = new Promise<{[key: string]: number}>(res => {
+        resolve = res;
+      });
       this._setTimeout(() => resolve(this._readUntilEndMark(markName, loopCount + 1)), 100);
       return promise;
     });
@@ -175,7 +191,7 @@ export class PerflogMetric extends Metric {
         }
         startEvent['ph'] = 'B';
         endEvent['ph'] = 'E';
-        endEvent['ts'] = startEvent['ts'] + startEvent['dur'];
+        endEvent['ts'] = startEvent['ts']! + startEvent['dur']!;
         this._remainingEvents.push(startEvent);
         this._remainingEvents.push(endEvent);
       } else {
@@ -185,13 +201,13 @@ export class PerflogMetric extends Metric {
     if (needSort) {
       // Need to sort because of the ph==='X' events
       this._remainingEvents.sort((a, b) => {
-        const diff = a['ts'] - b['ts'];
+        const diff = a['ts']! - b['ts']!;
         return diff > 0 ? 1 : diff < 0 ? -1 : 0;
       });
     }
   }
 
-  private _aggregateEvents(events: PerfLogEvent[], markName: string): {[key: string]: number} {
+  private _aggregateEvents(events: PerfLogEvent[], markName: string): {[key: string]: number}|null {
     const result: {[key: string]: number} = {'scriptTime': 0, 'pureScriptTime': 0};
     if (this._perfLogFeatures.gc) {
       result['gcTime'] = 0;
@@ -217,14 +233,14 @@ export class PerflogMetric extends Metric {
       result['requestCount'] = 0;
     }
 
-    let markStartEvent: PerfLogEvent = null;
-    let markEndEvent: PerfLogEvent = null;
+    let markStartEvent: PerfLogEvent = null!;
+    let markEndEvent: PerfLogEvent = null!;
     events.forEach((event) => {
       const ph = event['ph'];
       const name = event['name'];
       if (ph === 'B' && name === markName) {
         markStartEvent = event;
-      } else if (ph === 'I' && name === 'navigationStart') {
+      } else if (ph === 'I' && name === 'navigationStart' && !this._ignoreNavigation) {
         // if a benchmark measures reload of a page, use the last
         // navigationStart as begin event
         markStartEvent = event;
@@ -236,14 +252,17 @@ export class PerflogMetric extends Metric {
       // not all events have been received, no further processing for now
       return null;
     }
+    if (markStartEvent.pid !== markEndEvent.pid) {
+      result['invalid'] = 1;
+    }
 
     let gcTimeInScript = 0;
     let renderTimeInScript = 0;
 
     const frameTimestamps: number[] = [];
     const frameTimes: number[] = [];
-    let frameCaptureStartEvent: PerfLogEvent = null;
-    let frameCaptureEndEvent: PerfLogEvent = null;
+    let frameCaptureStartEvent: PerfLogEvent|null = null;
+    let frameCaptureEndEvent: PerfLogEvent|null = null;
 
     const intervalStarts: {[key: string]: PerfLogEvent} = {};
     const intervalStartCount: {[key: string]: number} = {};
@@ -251,7 +270,7 @@ export class PerflogMetric extends Metric {
     let inMeasureRange = false;
     events.forEach((event) => {
       const ph = event['ph'];
-      let name = event['name'];
+      let name = event['name']!;
       let microIterations = 1;
       const microIterationsMatch = name.match(_MICRO_ITERATIONS_REGEX);
       if (microIterationsMatch) {
@@ -270,7 +289,7 @@ export class PerflogMetric extends Metric {
       if (this._requestCount && name === 'sendRequest') {
         result['requestCount'] += 1;
       } else if (this._receivedData && name === 'receivedData' && ph === 'I') {
-        result['receivedData'] += event['args']['encodedDataLength'];
+        result['receivedData'] += event['args']!['encodedDataLength']!;
       }
       if (ph === 'B' && name === _MARK_NAME_FRAME_CAPTURE) {
         if (frameCaptureStartEvent) {
@@ -289,7 +308,7 @@ export class PerflogMetric extends Metric {
       }
 
       if (ph === 'I' && frameCaptureStartEvent && !frameCaptureEndEvent && name === 'frame') {
-        frameTimestamps.push(event['ts']);
+        frameTimestamps.push(event['ts']!);
         if (frameTimestamps.length >= 2) {
           frameTimes.push(
               frameTimestamps[frameTimestamps.length - 1] -
@@ -308,14 +327,14 @@ export class PerflogMetric extends Metric {
         intervalStartCount[name]--;
         if (intervalStartCount[name] === 0) {
           const startEvent = intervalStarts[name];
-          const duration = (event['ts'] - startEvent['ts']);
-          intervalStarts[name] = null;
+          const duration = (event['ts']! - startEvent['ts']!);
+          intervalStarts[name] = null!;
           if (name === 'gc') {
             result['gcTime'] += duration;
             const amount =
-                (startEvent['args']['usedHeapSize'] - event['args']['usedHeapSize']) / 1000;
+                (startEvent['args']!['usedHeapSize']! - event['args']!['usedHeapSize']!) / 1000;
             result['gcAmount'] += amount;
-            const majorGc = event['args']['majorGc'];
+            const majorGc = event['args']!['majorGc'];
             if (majorGc && majorGc) {
               result['majorGcTime'] += duration;
             }
@@ -358,7 +377,9 @@ export class PerflogMetric extends Metric {
         frameTimes.filter(t => t < _FRAME_TIME_SMOOTH_THRESHOLD).length / frameTimes.length;
   }
 
-  private _markName(index: number) { return `${_MARK_NAME_PREFIX}${index}`; }
+  private _markName(index: number) {
+    return `${_MARK_NAME_PREFIX}${index}`;
+  }
 }
 
 const _MICRO_ITERATIONS_REGEX = /(.+)\*(\d+)$/;

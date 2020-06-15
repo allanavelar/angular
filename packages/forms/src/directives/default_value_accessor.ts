@@ -1,13 +1,14 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Directive, ElementRef, Inject, InjectionToken, Optional, Renderer, forwardRef} from '@angular/core';
-import {ɵgetDOM as getDOM} from '@angular/platform-browser';
+import {ɵgetDOM as getDOM} from '@angular/common';
+import {Directive, ElementRef, forwardRef, Inject, InjectionToken, Optional, Renderer2} from '@angular/core';
+
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from './control_value_accessor';
 
 export const DEFAULT_VALUE_ACCESSOR: any = {
@@ -26,21 +27,37 @@ function _isAndroid(): boolean {
 }
 
 /**
- * Turn this mode on if you want form directives to buffer IME input until compositionend
- * @experimental
+ * @description
+ * Provide this token to control if form directives buffer IME input until
+ * the "compositionend" event occurs.
+ * @publicApi
  */
 export const COMPOSITION_BUFFER_MODE = new InjectionToken<boolean>('CompositionEventMode');
 
 /**
- * The default accessor for writing a value and listening to changes that is used by the
- * {@link NgModel}, {@link FormControlDirective}, and {@link FormControlName} directives.
+ * @description
+ * The default `ControlValueAccessor` for writing a value and listening to changes on input
+ * elements. The accessor is used by the `FormControlDirective`, `FormControlName`, and
+ * `NgModel` directives.
  *
- *  ### Example
- *  ```
- *  <input type="text" name="searchQuery" ngModel>
- *  ```
+ * @usageNotes
  *
- *  @stable
+ * ### Using the default value accessor
+ *
+ * The following example shows how to use an input element that activates the default value accessor
+ * (in this case, a text field).
+ *
+ * ```ts
+ * const firstNameControl = new FormControl();
+ * ```
+ *
+ * ```
+ * <input type="text" [formControl]="firstNameControl">
+ * ```
+ *
+ * @ngModule ReactiveFormsModule
+ * @ngModule FormsModule
+ * @publicApi
  */
 @Directive({
   selector:
@@ -49,48 +66,89 @@ export const COMPOSITION_BUFFER_MODE = new InjectionToken<boolean>('CompositionE
   // https://github.com/angular/angular/issues/3011 is implemented
   // selector: '[ngModel],[formControl],[formControlName]',
   host: {
-    '(input)': '_handleInput($event.target.value)',
+    '(input)': '$any(this)._handleInput($event.target.value)',
     '(blur)': 'onTouched()',
-    '(compositionstart)': '_compositionStart()',
-    '(compositionend)': '_compositionEnd($event.target.value)'
+    '(compositionstart)': '$any(this)._compositionStart()',
+    '(compositionend)': '$any(this)._compositionEnd($event.target.value)'
   },
   providers: [DEFAULT_VALUE_ACCESSOR]
 })
 export class DefaultValueAccessor implements ControlValueAccessor {
+  /**
+   * @description
+   * The registered callback function called when an input event occurs on the input element.
+   */
   onChange = (_: any) => {};
+
+  /**
+   * @description
+   * The registered callback function called when a blur event occurs on the input element.
+   */
   onTouched = () => {};
 
   /** Whether the user is creating a composition string (IME events). */
   private _composing = false;
 
   constructor(
-      private _renderer: Renderer, private _elementRef: ElementRef,
+      private _renderer: Renderer2, private _elementRef: ElementRef,
       @Optional() @Inject(COMPOSITION_BUFFER_MODE) private _compositionMode: boolean) {
     if (this._compositionMode == null) {
       this._compositionMode = !_isAndroid();
     }
   }
 
+  /**
+   * Sets the "value" property on the input element.
+   *
+   * @param value The checked value
+   */
   writeValue(value: any): void {
     const normalizedValue = value == null ? '' : value;
-    this._renderer.setElementProperty(this._elementRef.nativeElement, 'value', normalizedValue);
+    this._renderer.setProperty(this._elementRef.nativeElement, 'value', normalizedValue);
   }
 
-  registerOnChange(fn: (_: any) => void): void { this.onChange = fn; }
-  registerOnTouched(fn: () => void): void { this.onTouched = fn; }
+  /**
+   * @description
+   * Registers a function called when the control value changes.
+   *
+   * @param fn The callback function
+   */
+  registerOnChange(fn: (_: any) => void): void {
+    this.onChange = fn;
+  }
 
+  /**
+   * @description
+   * Registers a function called when the control is touched.
+   *
+   * @param fn The callback function
+   */
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  /**
+   * Sets the "disabled" property on the input element.
+   *
+   * @param isDisabled The disabled value
+   */
   setDisabledState(isDisabled: boolean): void {
-    this._renderer.setElementProperty(this._elementRef.nativeElement, 'disabled', isDisabled);
+    this._renderer.setProperty(this._elementRef.nativeElement, 'disabled', isDisabled);
   }
 
+  /** @internal */
   _handleInput(value: any): void {
     if (!this._compositionMode || (this._compositionMode && !this._composing)) {
       this.onChange(value);
     }
   }
 
-  _compositionStart(): void { this._composing = true; }
+  /** @internal */
+  _compositionStart(): void {
+    this._composing = true;
+  }
 
+  /** @internal */
   _compositionEnd(value: any): void {
     this._composing = false;
     this._compositionMode && this.onChange(value);

@@ -1,10 +1,12 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+import {dashCaseToCamelCase} from '../../util';
+
 import {AnimationStyleNormalizer} from './animation_style_normalizer';
 
 export class WebAnimationsStyleNormalizer extends AnimationStyleNormalizer {
@@ -32,17 +34,13 @@ export class WebAnimationsStyleNormalizer extends AnimationStyleNormalizer {
   }
 }
 
-const DIMENSIONAL_PROP_MAP = makeBooleanMap(
-    'width,height,minWidth,minHeight,maxWidth,maxHeight,left,top,bottom,right,fontSize,outlineWidth,outlineOffset,paddingTop,paddingLeft,paddingBottom,paddingRight,marginTop,marginLeft,marginBottom,marginRight,borderRadius,borderWidth,borderTopWidth,borderLeftWidth,borderRightWidth,borderBottomWidth,textIndent'
-        .split(','));
+const DIMENSIONAL_PROP_MAP =
+    (() => makeBooleanMap(
+         'width,height,minWidth,minHeight,maxWidth,maxHeight,left,top,bottom,right,fontSize,outlineWidth,outlineOffset,paddingTop,paddingLeft,paddingBottom,paddingRight,marginTop,marginLeft,marginBottom,marginRight,borderRadius,borderWidth,borderTopWidth,borderLeftWidth,borderRightWidth,borderBottomWidth,textIndent,perspective'
+             .split(',')))();
 
 function makeBooleanMap(keys: string[]): {[key: string]: boolean} {
   const map: {[key: string]: boolean} = {};
   keys.forEach(key => map[key] = true);
   return map;
-}
-
-const DASH_CASE_REGEXP = /-+([a-z0-9])/g;
-export function dashCaseToCamelCase(input: string): string {
-  return input.replace(DASH_CASE_REGEXP, (...m: any[]) => m[1].toUpperCase());
 }

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -16,7 +16,9 @@ export class HasStyle {
 
   constructor() {}
 
-  set width(w: number) { this.cellWidth = w; }
+  set width(w: number) {
+    this.cellWidth = w;
+  }
 }
 
 @Component({
@@ -62,7 +64,7 @@ export class Stage {
   directives: [NgFor],
   template: `
       <div [style.width.px]="cellWidth">
-          <button template="ngFor let stage of stages"
+          <button *ngFor="let stage of stages"
                   [disabled]="stage.isDisabled"
                   [style.background-color]="stage.backgroundColor"
                   on-click="setStage(stage)">
@@ -74,7 +76,9 @@ export class StageButtonsComponent extends HasStyle {
   private _offering: Offering;
   stages: Stage[];
 
-  get offering(): Offering { return this._offering; }
+  get offering(): Offering {
+    return this._offering;
+  }
 
   set offering(offering: Offering) {
     this._offering = offering;

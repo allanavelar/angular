@@ -1,12 +1,13 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-var browserProvidersConf = require('../../browser-providers.conf.js');
+const browserProvidersConf = require('../../browser-providers.conf');
+const {generateSeed} = require('../../tools/jasmine-seed-generator');
 
 // Karma configuration
 module.exports = function(config) {
@@ -15,6 +16,13 @@ module.exports = function(config) {
     basePath: '../../',
 
     frameworks: ['jasmine'],
+
+    client: {
+      jasmine: {
+        random: true,
+        seed: generateSeed('router/karma.conf'),
+      },
+    },
 
     files: [
       // Polyfills.
@@ -27,17 +35,10 @@ module.exports = function(config) {
       'node_modules/systemjs/dist/system.src.js',
 
       // Zone.js dependencies
-      'node_modules/zone.js/dist/zone.js',
-      'node_modules/zone.js/dist/long-stack-trace-zone.js',
-      'node_modules/zone.js/dist/proxy.js',
-      'node_modules/zone.js/dist/sync-test.js',
-      'node_modules/zone.js/dist/jasmine-patch.js',
-      'node_modules/zone.js/dist/async-test.js',
-      'node_modules/zone.js/dist/fake-async-test.js',
+      'dist/bin/packages/zone.js/npm_package/bundles/zone.umd.js',
+      'dist/bin/packages/zone.js/npm_package/bundles/zone-testing.umd.js',
 
-      // RxJs.
-      {pattern: 'node_modules/rxjs/**/*.js', included: false, watched: false},
-      {pattern: 'node_modules/rxjs/**/*.js.map', included: false, watched: false},
+      {pattern: 'node_modules/rxjs/**/*', included: false, watched: false},
 
       // shim
       {pattern: 'packages/router/karma-test-shim.js', included: true, watched: true},
@@ -60,20 +61,25 @@ module.exports = function(config) {
       {
         pattern: 'dist/all/@angular/platform-browser/testing/**/*.js',
         included: false,
-        watched: false,
+        watched: false
       },
 
       {pattern: 'dist/all/@angular/platform-browser-dynamic/*.js', included: false, watched: false},
       {
         pattern: 'dist/all/@angular/platform-browser-dynamic/src/**/*.js',
         included: false,
-        watched: false,
+        watched: false
       },
       {
         pattern: 'dist/all/@angular/platform-browser-dynamic/testing/**/*.js',
         included: false,
-        watched: false,
+        watched: false
       },
+
+      {pattern: 'dist/all/@angular/private/testing/**/*.js', included: false, watched: false},
+
+      {pattern: 'dist/all/@angular/upgrade/static/*.js', included: false, watched: false},
+      {pattern: 'dist/all/@angular/upgrade/static/src/**/*.js', included: false, watched: false},
 
       // Router
       {pattern: 'dist/all/@angular/router/**/*.js', included: false, watched: true}

@@ -1,15 +1,16 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 import {Compiler, SystemJsNgModuleLoader} from '@angular/core';
-import {global} from '@angular/core/src/util';
+import {global} from '@angular/core/src/util/global';
 import {async} from '@angular/core/testing';
 import {afterEach, beforeEach, describe, expect, it} from '@angular/core/testing/src/testing_internal';
+import {modifiedInIvy, onlyInIvy} from '@angular/private/testing';
 
 function mockSystem(modules: {[module: string]: any}) {
   return {
@@ -20,9 +21,9 @@ function mockSystem(modules: {[module: string]: any}) {
   };
 }
 
-export function main() {
-  describe('SystemJsNgModuleLoader', () => {
-    let oldSystem: any = null;
+describe('SystemJsNgModuleLoader', () => {
+  let oldSystem: any = null;
+  modifiedInIvy('only loads ngfactory shims in View Engine').describe('(View Engine)', () => {
     beforeEach(() => {
       oldSystem = global['System'];
       global['System'] = mockSystem({
@@ -31,16 +32,20 @@ export function main() {
         'prefixed/test/suffixed': {'NamedNgFactory': 'test module factory'}
       });
     });
-    afterEach(() => { global['System'] = oldSystem; });
+    afterEach(() => {
+      global['System'] = oldSystem;
+    });
 
     it('loads a default factory by appending the factory suffix', async(() => {
          const loader = new SystemJsNgModuleLoader(new Compiler());
-         loader.load('test').then(contents => { expect(contents).toBe('test module factory'); });
+         loader.load('test').then(contents => {
+           expect(contents).toBe('test module factory' as any);
+         });
        }));
     it('loads a named factory by appending the factory suffix', async(() => {
          const loader = new SystemJsNgModuleLoader(new Compiler());
          loader.load('test#Named').then(contents => {
-           expect(contents).toBe('test NamedNgFactory');
+           expect(contents).toBe('test NamedNgFactory' as any);
          });
        }));
     it('loads a named factory with a configured prefix and suffix', async(() => {
@@ -49,8 +54,33 @@ export function main() {
            factoryPathSuffix: '/suffixed',
          });
          loader.load('test#Named').then(contents => {
-           expect(contents).toBe('test module factory');
+           expect(contents).toBe('test module factory' as any);
          });
        }));
   });
-};
+
+  onlyInIvy('loads modules directly in Ivy').describe('(Ivy)', () => {
+    beforeEach(() => {
+      oldSystem = global['System'];
+      global['System'] = mockSystem({
+        'test': {'default': 'test module', 'NamedModule': 'test NamedModule'},
+      });
+    });
+    afterEach(() => {
+      global['System'] = oldSystem;
+    });
+
+    it('loads a default module', async(() => {
+         const loader = new SystemJsNgModuleLoader(new Compiler());
+         loader.load('test').then(contents => {
+           expect(contents.moduleType).toBe('test module' as any);
+         });
+       }));
+    it('loads a named module', async(() => {
+         const loader = new SystemJsNgModuleLoader(new Compiler());
+         loader.load('test#NamedModule').then(contents => {
+           expect(contents.moduleType).toBe('test NamedModule' as any);
+         });
+       }));
+  });
+});

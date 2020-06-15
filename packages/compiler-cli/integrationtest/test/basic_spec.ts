@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -16,10 +16,12 @@ import {createComponent} from './util';
 describe('template codegen output', () => {
   const outDir = 'src';
 
-  it('should lower Decorators without reflect-metadata', () => {
-    const jsOutput = path.join(outDir, 'basic.js');
-    expect(fs.existsSync(jsOutput)).toBeTruthy();
-    expect(fs.readFileSync(jsOutput, {encoding: 'utf-8'})).not.toContain('Reflect.decorate');
+  it('should be able to lower annotations as static fields', () => {
+    const basicFilePath = path.join(outDir, 'basic.js');
+    expect(fs.existsSync(basicFilePath)).toBeTruthy();
+    const fileContent = fs.readFileSync(basicFilePath, 'utf8');
+    expect(fileContent).not.toContain('Reflect.decorate');
+    expect(fileContent).toContain('BasicComp.decorators = [');
   });
 
   it('should produce metadata.json outputs', () => {
@@ -36,9 +38,8 @@ describe('template codegen output', () => {
     expect(fs.readFileSync(dtsOutput, {encoding: 'utf-8'})).toContain('Basic');
   });
 
-  it('should write .ngfactory.ts for .d.ts inputs', () => {
-    const factoryOutput =
-        path.join('node_modules', '@angular2-material', 'button', 'button.ngfactory.ts');
+  it('should write .ngfactory.js for .d.ts inputs', () => {
+    const factoryOutput = path.join('node_modules', '@angular', 'common', 'common.ngfactory.js');
     expect(fs.existsSync(factoryOutput)).toBeTruthy();
   });
 
@@ -84,9 +85,15 @@ describe('template codegen output', () => {
 
     it('should support i18n for content tags', () => {
       const containerElement = createComponent(BasicComp).nativeElement;
-      const pElement = containerElement.children.find((c: any) => c.name == 'p');
-      const pText = pElement.children.map((c: any) => c.data).join('').trim();
+      const pElement = containerElement.querySelector('p');
+      const pText = pElement.textContent;
       expect(pText).toBe('tervetuloa');
+    });
+
+    it('should have removed i18n markup', () => {
+      const containerElement = createComponent(BasicComp).debugElement.children[0];
+      expect(containerElement.attributes['title']).toBe('käännä teksti');
+      expect(containerElement.attributes['i18n-title']).toBeUndefined();
     });
   });
 });

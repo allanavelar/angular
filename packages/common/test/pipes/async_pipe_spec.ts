@@ -1,22 +1,20 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AsyncPipe} from '@angular/common';
-import {EventEmitter, WrappedValue} from '@angular/core';
+import {AsyncPipe, ɵgetDOM as getDOM} from '@angular/common';
+import {EventEmitter} from '@angular/core';
 import {AsyncTestCompleter, beforeEach, describe, expect, inject, it} from '@angular/core/testing/src/testing_internal';
-import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
 import {browserDetection} from '@angular/platform-browser/testing/src/browser_util';
 
 import {SpyChangeDetectorRef} from '../spies';
 
-export function main() {
+{
   describe('AsyncPipe', () => {
-
     describe('Observable', () => {
       let emitter: EventEmitter<any>;
       let pipe: AsyncPipe;
@@ -30,16 +28,17 @@ export function main() {
       });
 
       describe('transform', () => {
-        it('should return null when subscribing to an observable',
-           () => { expect(pipe.transform(emitter)).toBe(null); });
+        it('should return null when subscribing to an observable', () => {
+          expect(pipe.transform(emitter)).toBe(null);
+        });
 
-        it('should return the latest available value wrapped',
+        it('should return the latest available value',
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
              pipe.transform(emitter);
              emitter.emit(message);
 
              setTimeout(() => {
-               expect(pipe.transform(emitter)).toEqual(new WrappedValue(message));
+               expect(pipe.transform(emitter)).toEqual(message);
                async.done();
              }, 0);
            }));
@@ -82,11 +81,23 @@ export function main() {
                async.done();
              }, 10);
            }));
+
+        it('should return value for unchanged NaN', () => {
+          const emitter = new EventEmitter<any>();
+          emitter.emit(null);
+          pipe.transform(emitter);
+          emitter.next(NaN);
+          const firstResult = pipe.transform(emitter);
+          const secondResult = pipe.transform(emitter);
+          expect(firstResult).toBeNaN();
+          expect(secondResult).toBeNaN();
+        });
       });
 
       describe('ngOnDestroy', () => {
-        it('should do nothing when no subscription',
-           () => { expect(() => pipe.ngOnDestroy()).not.toThrow(); });
+        it('should do nothing when no subscription', () => {
+          expect(() => pipe.ngOnDestroy()).not.toThrow();
+        });
 
         it('should dispose of the existing subscription',
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
@@ -103,7 +114,7 @@ export function main() {
     });
 
     describe('Promise', () => {
-      const message = new Object();
+      const message = {};
       let pipe: AsyncPipe;
       let resolve: (result: any) => void;
       let reject: (error: any) => void;
@@ -122,8 +133,9 @@ export function main() {
       });
 
       describe('transform', () => {
-        it('should return null when subscribing to a promise',
-           () => { expect(pipe.transform(promise)).toBe(null); });
+        it('should return null when subscribing to a promise', () => {
+          expect(pipe.transform(promise)).toBe(null);
+        });
 
         it('should return the latest available value',
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
@@ -132,12 +144,12 @@ export function main() {
              resolve(message);
 
              setTimeout(() => {
-               expect(pipe.transform(promise)).toEqual(new WrappedValue(message));
+               expect(pipe.transform(promise)).toEqual(message);
                async.done();
              }, timer);
            }));
 
-        it('should return unwrapped value when nothing has changed since the last call',
+        it('should return value when nothing has changed since the last call',
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
              pipe.transform(promise);
              resolve(message);
@@ -156,7 +168,6 @@ export function main() {
              promise = new Promise<any>(() => {});
              expect(pipe.transform(promise)).toBe(null);
 
-             // this should not affect the pipe, so it should return WrappedValue
              resolve(message);
 
              setTimeout(() => {
@@ -178,8 +189,9 @@ export function main() {
            }));
 
         describe('ngOnDestroy', () => {
-          it('should do nothing when no source',
-             () => { expect(() => pipe.ngOnDestroy()).not.toThrow(); });
+          it('should do nothing when no source', () => {
+            expect(() => pipe.ngOnDestroy()).not.toThrow();
+          });
 
           it('should dispose of the existing source',
              inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
@@ -189,7 +201,7 @@ export function main() {
 
 
                setTimeout(() => {
-                 expect(pipe.transform(promise)).toEqual(new WrappedValue(message));
+                 expect(pipe.transform(promise)).toEqual(message);
                  pipe.ngOnDestroy();
                  expect(pipe.transform(promise)).toBe(null);
                  async.done();

@@ -1,10 +1,10 @@
 import { Component, Input, ViewChild } from '@angular/core';
-import { NgForm }                      from '@angular/forms';
+import { NgForm } from '@angular/forms';
 
 import { Hero } from './hero';
 
 @Component({
-  selector: 'hero-form',
+  selector: 'app-hero-form',
   templateUrl: './hero-form.component.html',
   styles: [`
     button { margin: 6px 0; }
@@ -15,10 +15,11 @@ export class HeroFormComponent {
   @Input() hero: Hero;
   @ViewChild('heroForm') form: NgForm;
 
+  // tslint:disable-next-line:variable-name
   private _submitMessage = '';
 
   get submitMessage() {
-    if (!this.form.valid) {
+    if (this.form && !this.form.valid) {
       this._submitMessage = '';
     }
     return this._submitMessage;

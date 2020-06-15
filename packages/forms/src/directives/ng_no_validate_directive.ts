@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -9,7 +9,9 @@
 import {Directive} from '@angular/core';
 
 /**
- * @whatItDoes Adds `novalidate` attribute to all forms by default.
+ * @description
+ *
+ * Adds `novalidate` attribute to all forms by default.
  *
  * `novalidate` is used to disable browser's native form validation.
  *
@@ -19,11 +21,15 @@ import {Directive} from '@angular/core';
  * <form ngNativeValidate></form>
  * ```
  *
- * @experimental
+ * @publicApi
+ * @ngModule ReactiveFormsModule
+ * @ngModule FormsModule
  */
 @Directive({
   selector: 'form:not([ngNoForm]):not([ngNativeValidate])',
   host: {'novalidate': ''},
 })
-export class NgNoValidate {
+export class ɵNgNoValidate {
 }
+
+export {ɵNgNoValidate as NgNoValidate};

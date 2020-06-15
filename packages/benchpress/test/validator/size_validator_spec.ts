@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -8,16 +8,16 @@
 
 import {describe, expect, it} from '@angular/core/testing/src/testing_internal';
 
-import {MeasureValues, ReflectiveInjector, SizeValidator} from '../../index';
+import {Injector, MeasureValues, SizeValidator} from '../../index';
 
-export function main() {
+{
   describe('size validator', () => {
     let validator: SizeValidator;
 
     function createValidator(size: number) {
       validator =
-          ReflectiveInjector
-              .resolveAndCreate(
+          Injector
+              .create(
                   [SizeValidator.PROVIDERS, {provide: SizeValidator.SAMPLE_SIZE, useValue: size}])
               .get(SizeValidator);
     }
@@ -39,7 +39,6 @@ export function main() {
       expect(validator.validate(sample.slice(0, 2))).toEqual(sample.slice(0, 2));
       expect(validator.validate(sample)).toEqual(sample.slice(1, 3));
     });
-
   });
 }
 

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -9,8 +9,9 @@
 import {describe, expect, it} from '@angular/core/testing/src/testing_internal';
 import {KeyEventsPlugin} from '@angular/platform-browser/src/dom/events/key_events';
 
-export function main() {
+{
   describe('KeyEventsPlugin', () => {
+    if (isNode) return;
 
     it('should ignore unrecognized events', () => {
       expect(KeyEventsPlugin.parseEventName('keydown')).toEqual(null);
@@ -50,7 +51,6 @@ export function main() {
           .toEqual({'domEventName': 'keydown', 'fullKey': 'control.shift'});
       expect(KeyEventsPlugin.parseEventName('keyup.control.shift'))
           .toEqual({'domEventName': 'keyup', 'fullKey': 'control.shift'});
-
     });
 
     it('should alias esc to escape', () => {
@@ -61,11 +61,10 @@ export function main() {
     it('should implement addGlobalEventListener', () => {
       const plugin = new KeyEventsPlugin(document);
 
-      spyOn(plugin, 'addEventListener').and.callFake(() => {});
+      spyOn(plugin, 'addEventListener').and.callFake(() => () => {});
 
       expect(() => plugin.addGlobalEventListener('window', 'keyup.control.esc', () => {}))
           .not.toThrowError();
     });
-
   });
 }

@@ -1,30 +1,23 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {fakeAsync} from '@angular/core/testing/src/fake_async';
-import {SyncAsyncResult, escapeRegExp, splitAtColon, utf8Encode} from '../src/util';
+import {escapeRegExp, partitionArray, splitAtColon, stringify, utf8Encode} from '../src/util';
 
-export function main() {
+{
   describe('util', () => {
-    describe('SyncAsyncResult', () => {
-      it('async value should default to Promise.resolve(syncValue)', fakeAsync(() => {
-           const syncValue = {};
-           const sar = new SyncAsyncResult(syncValue);
-           sar.asyncResult !.then((v: any) => expect(v).toBe(syncValue));
-         }));
-    });
-
     describe('splitAtColon', () => {
       it('should split when a single ":" is present', () => {
         expect(splitAtColon('a:b', [])).toEqual(['a', 'b']);
       });
 
-      it('should trim parts', () => { expect(splitAtColon(' a : b ', [])).toEqual(['a', 'b']); });
+      it('should trim parts', () => {
+        expect(splitAtColon(' a : b ', [])).toEqual(['a', 'b']);
+      });
 
       it('should support multiple ":"', () => {
         expect(splitAtColon('a:b:c', [])).toEqual(['a', 'b:c']);
@@ -79,8 +72,31 @@ export function main() {
           ['\uDEEE', '\xED\xBB\xAE'],
           ['\uDFFF', '\xED\xBF\xBF'],
         ];
-        tests.forEach(
-            ([input, output]: [string, string]) => { expect(utf8Encode(input)).toEqual(output); });
+        tests.forEach(([input, output]) => {
+          expect(utf8Encode(input)).toEqual(output);
+        });
+      });
+    });
+
+    describe('stringify()', () => {
+      it('should handle objects with no prototype.', () => {
+        expect(stringify(Object.create(null))).toEqual('object');
+      });
+    });
+
+    describe('partitionArray()', () => {
+      it('should handle empty arrays', () => {
+        expect(partitionArray([], () => true)).toEqual([[], []]);
+      });
+
+      it('should handle arrays with primitive type values', () => {
+        expect(partitionArray([1, 2, 3], (el: number) => el < 2)).toEqual([[1], [2, 3]]);
+      });
+
+      it('should handle arrays of objects', () => {
+        expect(partitionArray([{id: 1}, {id: 2}, {id: 3}], (el: any) => el.id < 2)).toEqual([
+          [{id: 1}], [{id: 2}, {id: 3}]
+        ]);
       });
     });
   });

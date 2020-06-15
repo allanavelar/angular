@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -8,15 +8,15 @@
 
 import {describe, expect, it} from '@angular/core/testing/src/testing_internal';
 
-import {MeasureValues, ReflectiveInjector, RegressionSlopeValidator} from '../../index';
+import {Injector, MeasureValues, RegressionSlopeValidator} from '../../index';
 
-export function main() {
+{
   describe('regression slope validator', () => {
     let validator: RegressionSlopeValidator;
 
     function createValidator({size, metric}: {size: number, metric: string}) {
-      validator = ReflectiveInjector
-                      .resolveAndCreate([
+      validator = Injector
+                      .create([
                         RegressionSlopeValidator.PROVIDERS,
                         {provide: RegressionSlopeValidator.METRIC, useValue: metric},
                         {provide: RegressionSlopeValidator.SAMPLE_SIZE, useValue: size}
@@ -53,7 +53,6 @@ export function main() {
       expect(validator.validate(sample.slice(0, 2))).toEqual(sample.slice(0, 2));
       expect(validator.validate(sample)).toEqual(sample.slice(1, 3));
     });
-
   });
 }
 

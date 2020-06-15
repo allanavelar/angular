@@ -1,14 +1,15 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 
-import {CompileIdentifierMetadata} from '../compile_metadata';
 import {ParseSourceSpan} from '../parse_util';
+import {I18nMeta} from '../render3/view/i18n/meta';
+import {error} from '../util';
 
 //// Types
 export enum TypeModifier {
@@ -23,7 +24,9 @@ export abstract class Type {
   }
   abstract visitType(visitor: TypeVisitor, context: any): any;
 
-  hasModifier(modifier: TypeModifier): boolean { return this.modifiers !.indexOf(modifier) !== -1; }
+  hasModifier(modifier: TypeModifier): boolean {
+    return this.modifiers!.indexOf(modifier) !== -1;
+  }
 }
 
 export enum BuiltinTypeName {
@@ -33,7 +36,8 @@ export enum BuiltinTypeName {
   Int,
   Number,
   Function,
-  Inferred
+  Inferred,
+  None,
 }
 
 export class BuiltinType extends Type {
@@ -41,12 +45,16 @@ export class BuiltinType extends Type {
     super(modifiers);
   }
   visitType(visitor: TypeVisitor, context: any): any {
-    return visitor.visitBuiltintType(this, context);
+    return visitor.visitBuiltinType(this, context);
   }
 }
 
 export class ExpressionType extends Type {
-  constructor(public value: Expression, modifiers: TypeModifier[]|null = null) { super(modifiers); }
+  constructor(
+      public value: Expression, modifiers: TypeModifier[]|null = null,
+      public typeParams: Type[]|null = null) {
+    super(modifiers);
+  }
   visitType(visitor: TypeVisitor, context: any): any {
     return visitor.visitExpressionType(this, context);
   }
@@ -54,7 +62,9 @@ export class ExpressionType extends Type {
 
 
 export class ArrayType extends Type {
-  constructor(public of : Type, modifiers: TypeModifier[]|null = null) { super(modifiers); }
+  constructor(public of: Type, modifiers: TypeModifier[]|null = null) {
+    super(modifiers);
+  }
   visitType(visitor: TypeVisitor, context: any): any {
     return visitor.visitArrayType(this, context);
   }
@@ -67,7 +77,9 @@ export class MapType extends Type {
     super(modifiers);
     this.valueType = valueType || null;
   }
-  visitType(visitor: TypeVisitor, context: any): any { return visitor.visitMapType(this, context); }
+  visitType(visitor: TypeVisitor, context: any): any {
+    return visitor.visitMapType(this, context);
+  }
 }
 
 export const DYNAMIC_TYPE = new BuiltinType(BuiltinTypeName.Dynamic);
@@ -77,9 +89,10 @@ export const INT_TYPE = new BuiltinType(BuiltinTypeName.Int);
 export const NUMBER_TYPE = new BuiltinType(BuiltinTypeName.Number);
 export const STRING_TYPE = new BuiltinType(BuiltinTypeName.String);
 export const FUNCTION_TYPE = new BuiltinType(BuiltinTypeName.Function);
+export const NONE_TYPE = new BuiltinType(BuiltinTypeName.None);
 
 export interface TypeVisitor {
-  visitBuiltintType(type: BuiltinType, context: any): any;
+  visitBuiltinType(type: BuiltinType, context: any): any;
   visitExpressionType(type: ExpressionType, context: any): any;
   visitArrayType(type: ArrayType, context: any): any;
   visitMapType(type: MapType, context: any): any;
@@ -99,12 +112,34 @@ export enum BinaryOperator {
   Modulo,
   And,
   Or,
+  BitwiseAnd,
   Lower,
   LowerEquals,
   Bigger,
   BiggerEquals
 }
 
+export function nullSafeIsEquivalent<T extends {isEquivalent(other: T): boolean}>(
+    base: T|null, other: T|null) {
+  if (base == null || other == null) {
+    return base == other;
+  }
+  return base.isEquivalent(other);
+}
+
+export function areAllEquivalent<T extends {isEquivalent(other: T): boolean}>(
+    base: T[], other: T[]) {
+  const len = base.length;
+  if (len !== other.length) {
+    return false;
+  }
+  for (let i = 0; i < len; i++) {
+    if (!base[i].isEquivalent(other[i])) {
+      return false;
+    }
+  }
+  return true;
+}
 
 export abstract class Expression {
   public type: Type|null;
@@ -116,6 +151,17 @@ export abstract class Expression {
   }
 
   abstract visitExpression(visitor: ExpressionVisitor, context: any): any;
+
+  /**
+   * Calculates whether this expression produces the same value as the given expression.
+   * Note: We don't check Types nor ParseSourceSpans nor function arguments.
+   */
+  abstract isEquivalent(e: Expression): boolean;
+
+  /**
+   * Return true if the expression is constant.
+   */
+  abstract isConstant(): boolean;
 
   prop(name: string, sourceSpan?: ParseSourceSpan|null): ReadPropExpr {
     return new ReadPropExpr(this, name, null, sourceSpan);
@@ -175,6 +221,10 @@ export abstract class Expression {
   and(rhs: Expression, sourceSpan?: ParseSourceSpan|null): BinaryOperatorExpr {
     return new BinaryOperatorExpr(BinaryOperator.And, this, rhs, null, sourceSpan);
   }
+  bitwiseAnd(rhs: Expression, sourceSpan?: ParseSourceSpan|null, parens: boolean = true):
+      BinaryOperatorExpr {
+    return new BinaryOperatorExpr(BinaryOperator.BitwiseAnd, this, rhs, null, sourceSpan, parens);
+  }
   or(rhs: Expression, sourceSpan?: ParseSourceSpan|null): BinaryOperatorExpr {
     return new BinaryOperatorExpr(BinaryOperator.Or, this, rhs, null, sourceSpan);
   }
@@ -199,7 +249,9 @@ export abstract class Expression {
     return new CastExpr(this, type, sourceSpan);
   }
 
-  toStmt(): Statement { return new ExpressionStatement(this, null); }
+  toStmt(): Statement {
+    return new ExpressionStatement(this, null);
+  }
 }
 
 export enum BuiltinVar {
@@ -220,21 +272,65 @@ export class ReadVarExpr extends Expression {
       this.builtin = null;
     } else {
       this.name = null;
-      this.builtin = <BuiltinVar>name;
+      this.builtin = name;
     }
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof ReadVarExpr && this.name === e.name && this.builtin === e.builtin;
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitReadVarExpr(this, context);
   }
 
   set(value: Expression): WriteVarExpr {
     if (!this.name) {
-      throw new Error(`Built in variable ${this.builtin} can not be assigned to.`)
+      throw new Error(`Built in variable ${this.builtin} can not be assigned to.`);
     }
     return new WriteVarExpr(this.name, value, null, this.sourceSpan);
   }
 }
 
+export class TypeofExpr extends Expression {
+  constructor(public expr: Expression, type?: Type|null, sourceSpan?: ParseSourceSpan|null) {
+    super(type, sourceSpan);
+  }
+
+  visitExpression(visitor: ExpressionVisitor, context: any) {
+    return visitor.visitTypeofExpr(this, context);
+  }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof TypeofExpr && e.expr.isEquivalent(this.expr);
+  }
+
+  isConstant(): boolean {
+    return this.expr.isConstant();
+  }
+}
+
+export class WrappedNodeExpr<T> extends Expression {
+  constructor(public node: T, type?: Type|null, sourceSpan?: ParseSourceSpan|null) {
+    super(type, sourceSpan);
+  }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof WrappedNodeExpr && this.node === e.node;
+  }
+
+  isConstant() {
+    return false;
+  }
+
+  visitExpression(visitor: ExpressionVisitor, context: any): any {
+    return visitor.visitWrappedNodeExpr(this, context);
+  }
+}
 
 export class WriteVarExpr extends Expression {
   public value: Expression;
@@ -244,12 +340,24 @@ export class WriteVarExpr extends Expression {
     this.value = value;
   }
 
+  isEquivalent(e: Expression): boolean {
+    return e instanceof WriteVarExpr && this.name === e.name && this.value.isEquivalent(e.value);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitWriteVarExpr(this, context);
   }
 
   toDeclStmt(type?: Type|null, modifiers?: StmtModifier[]|null): DeclareVarStmt {
     return new DeclareVarStmt(this.name, this.value, type, modifiers, this.sourceSpan);
+  }
+
+  toConstDecl(): DeclareVarStmt {
+    return this.toDeclStmt(INFERRED_TYPE, [StmtModifier.Final]);
   }
 }
 
@@ -262,6 +370,16 @@ export class WriteKeyExpr extends Expression {
     super(type || value.type, sourceSpan);
     this.value = value;
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof WriteKeyExpr && this.receiver.isEquivalent(e.receiver) &&
+        this.index.isEquivalent(e.index) && this.value.isEquivalent(e.value);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitWriteKeyExpr(this, context);
   }
@@ -276,6 +394,16 @@ export class WritePropExpr extends Expression {
     super(type || value.type, sourceSpan);
     this.value = value;
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof WritePropExpr && this.receiver.isEquivalent(e.receiver) &&
+        this.name === e.name && this.value.isEquivalent(e.value);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitWritePropExpr(this, context);
   }
@@ -302,6 +430,16 @@ export class InvokeMethodExpr extends Expression {
       this.builtin = <BuiltinMethod>method;
     }
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof InvokeMethodExpr && this.receiver.isEquivalent(e.receiver) &&
+        this.name === e.name && this.builtin === e.builtin && areAllEquivalent(this.args, e.args);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitInvokeMethodExpr(this, context);
   }
@@ -311,9 +449,19 @@ export class InvokeMethodExpr extends Expression {
 export class InvokeFunctionExpr extends Expression {
   constructor(
       public fn: Expression, public args: Expression[], type?: Type|null,
-      sourceSpan?: ParseSourceSpan|null) {
+      sourceSpan?: ParseSourceSpan|null, public pure = false) {
     super(type, sourceSpan);
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof InvokeFunctionExpr && this.fn.isEquivalent(e.fn) &&
+        areAllEquivalent(this.args, e.args) && this.pure === e.pure;
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitInvokeFunctionExpr(this, context);
   }
@@ -326,6 +474,16 @@ export class InstantiateExpr extends Expression {
       sourceSpan?: ParseSourceSpan|null) {
     super(type, sourceSpan);
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof InstantiateExpr && this.classExpr.isEquivalent(e.classExpr) &&
+        areAllEquivalent(this.args, e.args);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitInstantiateExpr(this, context);
   }
@@ -333,35 +491,170 @@ export class InstantiateExpr extends Expression {
 
 
 export class LiteralExpr extends Expression {
-  constructor(public value: any, type?: Type|null, sourceSpan?: ParseSourceSpan|null) {
+  constructor(
+      public value: number|string|boolean|null|undefined, type?: Type|null,
+      sourceSpan?: ParseSourceSpan|null) {
     super(type, sourceSpan);
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof LiteralExpr && this.value === e.value;
+  }
+
+  isConstant() {
+    return true;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitLiteralExpr(this, context);
   }
 }
 
 
+export class LocalizedString extends Expression {
+  constructor(
+      readonly metaBlock: I18nMeta, readonly messageParts: string[],
+      readonly placeHolderNames: string[], readonly expressions: Expression[],
+      sourceSpan?: ParseSourceSpan|null) {
+    super(STRING_TYPE, sourceSpan);
+  }
+
+  isEquivalent(e: Expression): boolean {
+    // return e instanceof LocalizedString && this.message === e.message;
+    return false;
+  }
+
+  isConstant() {
+    return false;
+  }
+
+  visitExpression(visitor: ExpressionVisitor, context: any): any {
+    return visitor.visitLocalizedString(this, context);
+  }
+
+  /**
+   * Serialize the given `meta` and `messagePart` into "cooked" and "raw" strings that can be used
+   * in a `$localize` tagged string. The format of the metadata is the same as that parsed by
+   * `parseI18nMeta()`.
+   *
+   * @param meta The metadata to serialize
+   * @param messagePart The first part of the tagged string
+   */
+  serializeI18nHead(): {cooked: string, raw: string} {
+    const MEANING_SEPARATOR = '|';
+    const ID_SEPARATOR = '@@';
+    const LEGACY_ID_INDICATOR = '␟';
+
+    let metaBlock = this.metaBlock.description || '';
+    if (this.metaBlock.meaning) {
+      metaBlock = `${this.metaBlock.meaning}${MEANING_SEPARATOR}${metaBlock}`;
+    }
+    if (this.metaBlock.customId) {
+      metaBlock = `${metaBlock}${ID_SEPARATOR}${this.metaBlock.customId}`;
+    }
+    if (this.metaBlock.legacyIds) {
+      this.metaBlock.legacyIds.forEach(legacyId => {
+        metaBlock = `${metaBlock}${LEGACY_ID_INDICATOR}${legacyId}`;
+      });
+    }
+    return createCookedRawString(metaBlock, this.messageParts[0]);
+  }
+
+  /**
+   * Serialize the given `placeholderName` and `messagePart` into "cooked" and "raw" strings that
+   * can be used in a `$localize` tagged string.
+   *
+   * @param placeholderName The placeholder name to serialize
+   * @param messagePart The following message string after this placeholder
+   */
+  serializeI18nTemplatePart(partIndex: number): {cooked: string, raw: string} {
+    const placeholderName = this.placeHolderNames[partIndex - 1];
+    const messagePart = this.messageParts[partIndex];
+    return createCookedRawString(placeholderName, messagePart);
+  }
+}
+
+const escapeSlashes = (str: string): string => str.replace(/\\/g, '\\\\');
+const escapeStartingColon = (str: string): string => str.replace(/^:/, '\\:');
+const escapeColons = (str: string): string => str.replace(/:/g, '\\:');
+const escapeForMessagePart = (str: string): string =>
+    str.replace(/`/g, '\\`').replace(/\${/g, '$\\{');
+
+/**
+ * Creates a `{cooked, raw}` object from the `metaBlock` and `messagePart`.
+ *
+ * The `raw` text must have various character sequences escaped:
+ * * "\" would otherwise indicate that the next character is a control character.
+ * * "`" and "${" are template string control sequences that would otherwise prematurely indicate
+ *   the end of a message part.
+ * * ":" inside a metablock would prematurely indicate the end of the metablock.
+ * * ":" at the start of a messagePart with no metablock would erroneously indicate the start of a
+ *   metablock.
+ *
+ * @param metaBlock Any metadata that should be prepended to the string
+ * @param messagePart The message part of the string
+ */
+function createCookedRawString(metaBlock: string, messagePart: string) {
+  if (metaBlock === '') {
+    return {
+      cooked: messagePart,
+      raw: escapeForMessagePart(escapeStartingColon(escapeSlashes(messagePart)))
+    };
+  } else {
+    return {
+      cooked: `:${metaBlock}:${messagePart}`,
+      raw: escapeForMessagePart(
+          `:${escapeColons(escapeSlashes(metaBlock))}:${escapeSlashes(messagePart)}`)
+    };
+  }
+}
+
 export class ExternalExpr extends Expression {
   constructor(
-      public value: CompileIdentifierMetadata, type?: Type|null,
-      public typeParams: Type[]|null = null, sourceSpan?: ParseSourceSpan|null) {
+      public value: ExternalReference, type?: Type|null, public typeParams: Type[]|null = null,
+      sourceSpan?: ParseSourceSpan|null) {
     super(type, sourceSpan);
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof ExternalExpr && this.value.name === e.value.name &&
+        this.value.moduleName === e.value.moduleName && this.value.runtime === e.value.runtime;
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitExternalExpr(this, context);
   }
 }
 
+export class ExternalReference {
+  constructor(public moduleName: string|null, public name: string|null, public runtime?: any|null) {
+  }
+  // Note: no isEquivalent method here as we use this as an interface too.
+}
 
 export class ConditionalExpr extends Expression {
   public trueCase: Expression;
+
   constructor(
       public condition: Expression, trueCase: Expression, public falseCase: Expression|null = null,
       type?: Type|null, sourceSpan?: ParseSourceSpan|null) {
     super(type || trueCase.type, sourceSpan);
     this.trueCase = trueCase;
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof ConditionalExpr && this.condition.isEquivalent(e.condition) &&
+        this.trueCase.isEquivalent(e.trueCase) && nullSafeIsEquivalent(this.falseCase, e.falseCase);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitConditionalExpr(this, context);
   }
@@ -372,8 +665,35 @@ export class NotExpr extends Expression {
   constructor(public condition: Expression, sourceSpan?: ParseSourceSpan|null) {
     super(BOOL_TYPE, sourceSpan);
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof NotExpr && this.condition.isEquivalent(e.condition);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitNotExpr(this, context);
+  }
+}
+
+export class AssertNotNull extends Expression {
+  constructor(public condition: Expression, sourceSpan?: ParseSourceSpan|null) {
+    super(condition.type, sourceSpan);
+  }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof AssertNotNull && this.condition.isEquivalent(e.condition);
+  }
+
+  isConstant() {
+    return false;
+  }
+
+  visitExpression(visitor: ExpressionVisitor, context: any): any {
+    return visitor.visitAssertNotNullExpr(this, context);
   }
 }
 
@@ -381,6 +701,15 @@ export class CastExpr extends Expression {
   constructor(public value: Expression, type?: Type|null, sourceSpan?: ParseSourceSpan|null) {
     super(type, sourceSpan);
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof CastExpr && this.value.isEquivalent(e.value);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitCastExpr(this, context);
   }
@@ -389,15 +718,29 @@ export class CastExpr extends Expression {
 
 export class FnParam {
   constructor(public name: string, public type: Type|null = null) {}
+
+  isEquivalent(param: FnParam): boolean {
+    return this.name === param.name;
+  }
 }
 
 
 export class FunctionExpr extends Expression {
   constructor(
       public params: FnParam[], public statements: Statement[], type?: Type|null,
-      sourceSpan?: ParseSourceSpan|null) {
+      sourceSpan?: ParseSourceSpan|null, public name?: string|null) {
     super(type, sourceSpan);
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof FunctionExpr && areAllEquivalent(this.params, e.params) &&
+        areAllEquivalent(this.statements, e.statements);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitFunctionExpr(this, context);
   }
@@ -413,10 +756,20 @@ export class BinaryOperatorExpr extends Expression {
   public lhs: Expression;
   constructor(
       public operator: BinaryOperator, lhs: Expression, public rhs: Expression, type?: Type|null,
-      sourceSpan?: ParseSourceSpan|null) {
+      sourceSpan?: ParseSourceSpan|null, public parens: boolean = true) {
     super(type || lhs.type, sourceSpan);
     this.lhs = lhs;
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof BinaryOperatorExpr && this.operator === e.operator &&
+        this.lhs.isEquivalent(e.lhs) && this.rhs.isEquivalent(e.rhs);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitBinaryOperatorExpr(this, context);
   }
@@ -429,9 +782,20 @@ export class ReadPropExpr extends Expression {
       sourceSpan?: ParseSourceSpan|null) {
     super(type, sourceSpan);
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof ReadPropExpr && this.receiver.isEquivalent(e.receiver) &&
+        this.name === e.name;
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitReadPropExpr(this, context);
   }
+
   set(value: Expression): WritePropExpr {
     return new WritePropExpr(this.receiver, this.name, value, null, this.sourceSpan);
   }
@@ -444,9 +808,20 @@ export class ReadKeyExpr extends Expression {
       sourceSpan?: ParseSourceSpan|null) {
     super(type, sourceSpan);
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof ReadKeyExpr && this.receiver.isEquivalent(e.receiver) &&
+        this.index.isEquivalent(e.index);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitReadKeyExpr(this, context);
   }
+
   set(value: Expression): WriteKeyExpr {
     return new WriteKeyExpr(this.receiver, this.index, value, null, this.sourceSpan);
   }
@@ -459,13 +834,24 @@ export class LiteralArrayExpr extends Expression {
     super(type, sourceSpan);
     this.entries = entries;
   }
+
+  isConstant() {
+    return this.entries.every(e => e.isConstant());
+  }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof LiteralArrayExpr && areAllEquivalent(this.entries, e.entries);
+  }
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitLiteralArrayExpr(this, context);
   }
 }
 
 export class LiteralMapEntry {
-  constructor(public key: string, public value: Expression, public quoted: boolean = false) {}
+  constructor(public key: string, public value: Expression, public quoted: boolean) {}
+  isEquivalent(e: LiteralMapEntry): boolean {
+    return this.key === e.key && this.value.isEquivalent(e.value);
+  }
 }
 
 export class LiteralMapExpr extends Expression {
@@ -477,6 +863,15 @@ export class LiteralMapExpr extends Expression {
       this.valueType = type.valueType;
     }
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof LiteralMapExpr && areAllEquivalent(this.entries, e.entries);
+  }
+
+  isConstant() {
+    return this.entries.every(e => e.value.isConstant());
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitLiteralMapExpr(this, context);
   }
@@ -486,6 +881,15 @@ export class CommaExpr extends Expression {
   constructor(public parts: Expression[], sourceSpan?: ParseSourceSpan|null) {
     super(parts[parts.length - 1].type, sourceSpan);
   }
+
+  isEquivalent(e: Expression): boolean {
+    return e instanceof CommaExpr && areAllEquivalent(this.parts, e.parts);
+  }
+
+  isConstant() {
+    return false;
+  }
+
   visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitCommaExpr(this, context);
   }
@@ -500,9 +904,11 @@ export interface ExpressionVisitor {
   visitInvokeFunctionExpr(ast: InvokeFunctionExpr, context: any): any;
   visitInstantiateExpr(ast: InstantiateExpr, context: any): any;
   visitLiteralExpr(ast: LiteralExpr, context: any): any;
+  visitLocalizedString(ast: LocalizedString, context: any): any;
   visitExternalExpr(ast: ExternalExpr, context: any): any;
   visitConditionalExpr(ast: ConditionalExpr, context: any): any;
   visitNotExpr(ast: NotExpr, context: any): any;
+  visitAssertNotNullExpr(ast: AssertNotNull, context: any): any;
   visitCastExpr(ast: CastExpr, context: any): any;
   visitFunctionExpr(ast: FunctionExpr, context: any): any;
   visitBinaryOperatorExpr(ast: BinaryOperatorExpr, context: any): any;
@@ -511,6 +917,8 @@ export interface ExpressionVisitor {
   visitLiteralArrayExpr(ast: LiteralArrayExpr, context: any): any;
   visitLiteralMapExpr(ast: LiteralMapExpr, context: any): any;
   visitCommaExpr(ast: CommaExpr, context: any): any;
+  visitWrappedNodeExpr(ast: WrappedNodeExpr<any>, context: any): any;
+  visitTypeofExpr(ast: TypeofExpr, context: any): any;
 }
 
 export const THIS_EXPR = new ReadVarExpr(BuiltinVar.This, null, null);
@@ -523,7 +931,9 @@ export const TYPED_NULL_EXPR = new LiteralExpr(null, INFERRED_TYPE, null);
 //// Statements
 export enum StmtModifier {
   Final,
-  Private
+  Private,
+  Exported,
+  Static,
 }
 
 export abstract class Statement {
@@ -533,22 +943,32 @@ export abstract class Statement {
     this.modifiers = modifiers || [];
     this.sourceSpan = sourceSpan || null;
   }
+  /**
+   * Calculates whether this statement produces the same value as the given statement.
+   * Note: We don't check Types nor ParseSourceSpans nor function arguments.
+   */
+  abstract isEquivalent(stmt: Statement): boolean;
 
   abstract visitStatement(visitor: StatementVisitor, context: any): any;
 
-  hasModifier(modifier: StmtModifier): boolean { return this.modifiers !.indexOf(modifier) !== -1; }
+  hasModifier(modifier: StmtModifier): boolean {
+    return this.modifiers!.indexOf(modifier) !== -1;
+  }
 }
 
 
 export class DeclareVarStmt extends Statement {
   public type: Type|null;
   constructor(
-      public name: string, public value: Expression, type?: Type|null,
+      public name: string, public value?: Expression, type?: Type|null,
       modifiers: StmtModifier[]|null = null, sourceSpan?: ParseSourceSpan|null) {
     super(modifiers, sourceSpan);
-    this.type = type || value.type;
+    this.type = type || (value && value.type) || null;
   }
-
+  isEquivalent(stmt: Statement): boolean {
+    return stmt instanceof DeclareVarStmt && this.name === stmt.name &&
+        (this.value ? !!stmt.value && this.value.isEquivalent(stmt.value) : !stmt.value);
+  }
   visitStatement(visitor: StatementVisitor, context: any): any {
     return visitor.visitDeclareVarStmt(this, context);
   }
@@ -562,6 +982,10 @@ export class DeclareFunctionStmt extends Statement {
     super(modifiers, sourceSpan);
     this.type = type || null;
   }
+  isEquivalent(stmt: Statement): boolean {
+    return stmt instanceof DeclareFunctionStmt && areAllEquivalent(this.params, stmt.params) &&
+        areAllEquivalent(this.statements, stmt.statements);
+  }
 
   visitStatement(visitor: StatementVisitor, context: any): any {
     return visitor.visitDeclareFunctionStmt(this, context);
@@ -571,6 +995,9 @@ export class DeclareFunctionStmt extends Statement {
 export class ExpressionStatement extends Statement {
   constructor(public expr: Expression, sourceSpan?: ParseSourceSpan|null) {
     super(null, sourceSpan);
+  }
+  isEquivalent(stmt: Statement): boolean {
+    return stmt instanceof ExpressionStatement && this.expr.isEquivalent(stmt.expr);
   }
 
   visitStatement(visitor: StatementVisitor, context: any): any {
@@ -582,6 +1009,9 @@ export class ExpressionStatement extends Statement {
 export class ReturnStatement extends Statement {
   constructor(public value: Expression, sourceSpan?: ParseSourceSpan|null) {
     super(null, sourceSpan);
+  }
+  isEquivalent(stmt: Statement): boolean {
+    return stmt instanceof ReturnStatement && this.value.isEquivalent(stmt.value);
   }
   visitStatement(visitor: StatementVisitor, context: any): any {
     return visitor.visitReturnStmt(this, context);
@@ -596,12 +1026,19 @@ export class AbstractClassPart {
     }
     this.type = type || null;
   }
-  hasModifier(modifier: StmtModifier): boolean { return this.modifiers !.indexOf(modifier) !== -1; }
+  hasModifier(modifier: StmtModifier): boolean {
+    return this.modifiers!.indexOf(modifier) !== -1;
+  }
 }
 
 export class ClassField extends AbstractClassPart {
-  constructor(public name: string, type?: Type|null, modifiers: StmtModifier[]|null = null) {
+  constructor(
+      public name: string, type?: Type|null, modifiers: StmtModifier[]|null = null,
+      public initializer?: Expression) {
     super(type, modifiers);
+  }
+  isEquivalent(f: ClassField) {
+    return this.name === f.name;
   }
 }
 
@@ -612,6 +1049,9 @@ export class ClassMethod extends AbstractClassPart {
       type?: Type|null, modifiers: StmtModifier[]|null = null) {
     super(type, modifiers);
   }
+  isEquivalent(m: ClassMethod) {
+    return this.name === m.name && areAllEquivalent(this.body, m.body);
+  }
 }
 
 
@@ -620,6 +1060,9 @@ export class ClassGetter extends AbstractClassPart {
       public name: string, public body: Statement[], type?: Type|null,
       modifiers: StmtModifier[]|null = null) {
     super(type, modifiers);
+  }
+  isEquivalent(m: ClassGetter) {
+    return this.name === m.name && areAllEquivalent(this.body, m.body);
   }
 }
 
@@ -631,6 +1074,14 @@ export class ClassStmt extends Statement {
       public methods: ClassMethod[], modifiers: StmtModifier[]|null = null,
       sourceSpan?: ParseSourceSpan|null) {
     super(modifiers, sourceSpan);
+  }
+  isEquivalent(stmt: Statement): boolean {
+    return stmt instanceof ClassStmt && this.name === stmt.name &&
+        nullSafeIsEquivalent(this.parent, stmt.parent) &&
+        areAllEquivalent(this.fields, stmt.fields) &&
+        areAllEquivalent(this.getters, stmt.getters) &&
+        this.constructorMethod.isEquivalent(stmt.constructorMethod) &&
+        areAllEquivalent(this.methods, stmt.methods);
   }
   visitStatement(visitor: StatementVisitor, context: any): any {
     return visitor.visitDeclareClassStmt(this, context);
@@ -644,27 +1095,52 @@ export class IfStmt extends Statement {
       public falseCase: Statement[] = [], sourceSpan?: ParseSourceSpan|null) {
     super(null, sourceSpan);
   }
+  isEquivalent(stmt: Statement): boolean {
+    return stmt instanceof IfStmt && this.condition.isEquivalent(stmt.condition) &&
+        areAllEquivalent(this.trueCase, stmt.trueCase) &&
+        areAllEquivalent(this.falseCase, stmt.falseCase);
+  }
   visitStatement(visitor: StatementVisitor, context: any): any {
     return visitor.visitIfStmt(this, context);
   }
 }
 
-
 export class CommentStmt extends Statement {
-  constructor(public comment: string, sourceSpan?: ParseSourceSpan|null) {
+  constructor(public comment: string, public multiline = false, sourceSpan?: ParseSourceSpan|null) {
     super(null, sourceSpan);
+  }
+  isEquivalent(stmt: Statement): boolean {
+    return stmt instanceof CommentStmt;
   }
   visitStatement(visitor: StatementVisitor, context: any): any {
     return visitor.visitCommentStmt(this, context);
   }
 }
 
+export class JSDocCommentStmt extends Statement {
+  constructor(public tags: JSDocTag[] = [], sourceSpan?: ParseSourceSpan|null) {
+    super(null, sourceSpan);
+  }
+  isEquivalent(stmt: Statement): boolean {
+    return stmt instanceof JSDocCommentStmt && this.toString() === stmt.toString();
+  }
+  visitStatement(visitor: StatementVisitor, context: any): any {
+    return visitor.visitJSDocCommentStmt(this, context);
+  }
+  toString(): string {
+    return serializeTags(this.tags);
+  }
+}
 
 export class TryCatchStmt extends Statement {
   constructor(
       public bodyStmts: Statement[], public catchStmts: Statement[],
       sourceSpan?: ParseSourceSpan|null) {
     super(null, sourceSpan);
+  }
+  isEquivalent(stmt: Statement): boolean {
+    return stmt instanceof TryCatchStmt && areAllEquivalent(this.bodyStmts, stmt.bodyStmts) &&
+        areAllEquivalent(this.catchStmts, stmt.catchStmts);
   }
   visitStatement(visitor: StatementVisitor, context: any): any {
     return visitor.visitTryCatchStmt(this, context);
@@ -675,6 +1151,9 @@ export class TryCatchStmt extends Statement {
 export class ThrowStmt extends Statement {
   constructor(public error: Expression, sourceSpan?: ParseSourceSpan|null) {
     super(null, sourceSpan);
+  }
+  isEquivalent(stmt: ThrowStmt): boolean {
+    return stmt instanceof TryCatchStmt && this.error.isEquivalent(stmt.error);
   }
   visitStatement(visitor: StatementVisitor, context: any): any {
     return visitor.visitThrowStmt(this, context);
@@ -691,14 +1170,31 @@ export interface StatementVisitor {
   visitTryCatchStmt(stmt: TryCatchStmt, context: any): any;
   visitThrowStmt(stmt: ThrowStmt, context: any): any;
   visitCommentStmt(stmt: CommentStmt, context: any): any;
+  visitJSDocCommentStmt(stmt: JSDocCommentStmt, context: any): any;
 }
 
 export class AstTransformer implements StatementVisitor, ExpressionVisitor {
-  transformExpr(expr: Expression, context: any): Expression { return expr; }
+  transformExpr(expr: Expression, context: any): Expression {
+    return expr;
+  }
 
-  transformStmt(stmt: Statement, context: any): Statement { return stmt; }
+  transformStmt(stmt: Statement, context: any): Statement {
+    return stmt;
+  }
 
-  visitReadVarExpr(ast: ReadVarExpr, context: any): any { return this.transformExpr(ast, context); }
+  visitReadVarExpr(ast: ReadVarExpr, context: any): any {
+    return this.transformExpr(ast, context);
+  }
+
+  visitWrappedNodeExpr(ast: WrappedNodeExpr<any>, context: any): any {
+    return this.transformExpr(ast, context);
+  }
+
+  visitTypeofExpr(expr: TypeofExpr, context: any): any {
+    return this.transformExpr(
+        new TypeofExpr(expr.expr.visitExpression(this, context), expr.type, expr.sourceSpan),
+        context);
+  }
 
   visitWriteVarExpr(expr: WriteVarExpr, context: any): any {
     return this.transformExpr(
@@ -727,7 +1223,7 @@ export class AstTransformer implements StatementVisitor, ExpressionVisitor {
     const method = ast.builtin || ast.name;
     return this.transformExpr(
         new InvokeMethodExpr(
-            ast.receiver.visitExpression(this, context), method !,
+            ast.receiver.visitExpression(this, context), method!,
             this.visitAllExpressions(ast.args, context), ast.type, ast.sourceSpan),
         context);
   }
@@ -748,7 +1244,17 @@ export class AstTransformer implements StatementVisitor, ExpressionVisitor {
         context);
   }
 
-  visitLiteralExpr(ast: LiteralExpr, context: any): any { return this.transformExpr(ast, context); }
+  visitLiteralExpr(ast: LiteralExpr, context: any): any {
+    return this.transformExpr(ast, context);
+  }
+
+  visitLocalizedString(ast: LocalizedString, context: any): any {
+    return this.transformExpr(
+        new LocalizedString(
+            ast.metaBlock, ast.messageParts, ast.placeHolderNames,
+            this.visitAllExpressions(ast.expressions, context), ast.sourceSpan),
+        context);
+  }
 
   visitExternalExpr(ast: ExternalExpr, context: any): any {
     return this.transformExpr(ast, context);
@@ -759,13 +1265,18 @@ export class AstTransformer implements StatementVisitor, ExpressionVisitor {
         new ConditionalExpr(
             ast.condition.visitExpression(this, context),
             ast.trueCase.visitExpression(this, context),
-            ast.falseCase !.visitExpression(this, context), ast.type, ast.sourceSpan),
+            ast.falseCase!.visitExpression(this, context), ast.type, ast.sourceSpan),
         context);
   }
 
   visitNotExpr(ast: NotExpr, context: any): any {
     return this.transformExpr(
         new NotExpr(ast.condition.visitExpression(this, context), ast.sourceSpan), context);
+  }
+
+  visitAssertNotNullExpr(ast: AssertNotNull, context: any): any {
+    return this.transformExpr(
+        new AssertNotNull(ast.condition.visitExpression(this, context), ast.sourceSpan), context);
   }
 
   visitCastExpr(ast: CastExpr, context: any): any {
@@ -813,7 +1324,7 @@ export class AstTransformer implements StatementVisitor, ExpressionVisitor {
   visitLiteralMapExpr(ast: LiteralMapExpr, context: any): any {
     const entries = ast.entries.map(
         (entry): LiteralMapEntry => new LiteralMapEntry(
-            entry.key, entry.value.visitExpression(this, context), entry.quoted, ));
+            entry.key, entry.value.visitExpression(this, context), entry.quoted));
     const mapType = new MapType(ast.valueType, null);
     return this.transformExpr(new LiteralMapExpr(entries, mapType, ast.sourceSpan), context);
   }
@@ -826,11 +1337,9 @@ export class AstTransformer implements StatementVisitor, ExpressionVisitor {
   }
 
   visitDeclareVarStmt(stmt: DeclareVarStmt, context: any): any {
+    const value = stmt.value && stmt.value.visitExpression(this, context);
     return this.transformStmt(
-        new DeclareVarStmt(
-            stmt.name, stmt.value.visitExpression(this, context), stmt.type, stmt.modifiers,
-            stmt.sourceSpan),
-        context);
+        new DeclareVarStmt(stmt.name, value, stmt.type, stmt.modifiers, stmt.sourceSpan), context);
   }
   visitDeclareFunctionStmt(stmt: DeclareFunctionStmt, context: any): any {
     return this.transformStmt(
@@ -852,7 +1361,7 @@ export class AstTransformer implements StatementVisitor, ExpressionVisitor {
   }
 
   visitDeclareClassStmt(stmt: ClassStmt, context: any): any {
-    const parent = stmt.parent !.visitExpression(this, context);
+    const parent = stmt.parent!.visitExpression(this, context);
     const getters = stmt.getters.map(
         getter => new ClassGetter(
             getter.name, this.visitAllStatements(getter.body, context), getter.type,
@@ -898,6 +1407,10 @@ export class AstTransformer implements StatementVisitor, ExpressionVisitor {
     return this.transformStmt(stmt, context);
   }
 
+  visitJSDocCommentStmt(stmt: JSDocCommentStmt, context: any): any {
+    return this.transformStmt(stmt, context);
+  }
+
   visitAllStatements(stmts: Statement[], context: any): Statement[] {
     return stmts.map(stmt => stmt.visitStatement(this, context));
   }
@@ -905,92 +1418,148 @@ export class AstTransformer implements StatementVisitor, ExpressionVisitor {
 
 
 export class RecursiveAstVisitor implements StatementVisitor, ExpressionVisitor {
-  visitReadVarExpr(ast: ReadVarExpr, context: any): any { return ast; }
-  visitWriteVarExpr(expr: WriteVarExpr, context: any): any {
-    expr.value.visitExpression(this, context);
-    return expr;
+  visitType(ast: Type, context: any): any {
+    return ast;
   }
-  visitWriteKeyExpr(expr: WriteKeyExpr, context: any): any {
-    expr.receiver.visitExpression(this, context);
-    expr.index.visitExpression(this, context);
-    expr.value.visitExpression(this, context);
-    return expr;
+  visitExpression(ast: Expression, context: any): any {
+    if (ast.type) {
+      ast.type.visitType(this, context);
+    }
+    return ast;
   }
-  visitWritePropExpr(expr: WritePropExpr, context: any): any {
-    expr.receiver.visitExpression(this, context);
-    expr.value.visitExpression(this, context);
-    return expr;
+  visitBuiltinType(type: BuiltinType, context: any): any {
+    return this.visitType(type, context);
+  }
+  visitExpressionType(type: ExpressionType, context: any): any {
+    type.value.visitExpression(this, context);
+    if (type.typeParams !== null) {
+      type.typeParams.forEach(param => this.visitType(param, context));
+    }
+    return this.visitType(type, context);
+  }
+  visitArrayType(type: ArrayType, context: any): any {
+    return this.visitType(type, context);
+  }
+  visitMapType(type: MapType, context: any): any {
+    return this.visitType(type, context);
+  }
+  visitWrappedNodeExpr(ast: WrappedNodeExpr<any>, context: any): any {
+    return ast;
+  }
+  visitTypeofExpr(ast: TypeofExpr, context: any): any {
+    return this.visitExpression(ast, context);
+  }
+  visitReadVarExpr(ast: ReadVarExpr, context: any): any {
+    return this.visitExpression(ast, context);
+  }
+  visitWriteVarExpr(ast: WriteVarExpr, context: any): any {
+    ast.value.visitExpression(this, context);
+    return this.visitExpression(ast, context);
+  }
+  visitWriteKeyExpr(ast: WriteKeyExpr, context: any): any {
+    ast.receiver.visitExpression(this, context);
+    ast.index.visitExpression(this, context);
+    ast.value.visitExpression(this, context);
+    return this.visitExpression(ast, context);
+  }
+  visitWritePropExpr(ast: WritePropExpr, context: any): any {
+    ast.receiver.visitExpression(this, context);
+    ast.value.visitExpression(this, context);
+    return this.visitExpression(ast, context);
   }
   visitInvokeMethodExpr(ast: InvokeMethodExpr, context: any): any {
     ast.receiver.visitExpression(this, context);
     this.visitAllExpressions(ast.args, context);
-    return ast;
+    return this.visitExpression(ast, context);
   }
   visitInvokeFunctionExpr(ast: InvokeFunctionExpr, context: any): any {
     ast.fn.visitExpression(this, context);
     this.visitAllExpressions(ast.args, context);
-    return ast;
+    return this.visitExpression(ast, context);
   }
   visitInstantiateExpr(ast: InstantiateExpr, context: any): any {
     ast.classExpr.visitExpression(this, context);
     this.visitAllExpressions(ast.args, context);
-    return ast;
+    return this.visitExpression(ast, context);
   }
-  visitLiteralExpr(ast: LiteralExpr, context: any): any { return ast; }
-  visitExternalExpr(ast: ExternalExpr, context: any): any { return ast; }
+  visitLiteralExpr(ast: LiteralExpr, context: any): any {
+    return this.visitExpression(ast, context);
+  }
+  visitLocalizedString(ast: LocalizedString, context: any): any {
+    return this.visitExpression(ast, context);
+  }
+  visitExternalExpr(ast: ExternalExpr, context: any): any {
+    if (ast.typeParams) {
+      ast.typeParams.forEach(type => type.visitType(this, context));
+    }
+    return this.visitExpression(ast, context);
+  }
   visitConditionalExpr(ast: ConditionalExpr, context: any): any {
     ast.condition.visitExpression(this, context);
     ast.trueCase.visitExpression(this, context);
-    ast.falseCase !.visitExpression(this, context);
-    return ast;
+    ast.falseCase!.visitExpression(this, context);
+    return this.visitExpression(ast, context);
   }
   visitNotExpr(ast: NotExpr, context: any): any {
     ast.condition.visitExpression(this, context);
-    return ast;
+    return this.visitExpression(ast, context);
+  }
+  visitAssertNotNullExpr(ast: AssertNotNull, context: any): any {
+    ast.condition.visitExpression(this, context);
+    return this.visitExpression(ast, context);
   }
   visitCastExpr(ast: CastExpr, context: any): any {
     ast.value.visitExpression(this, context);
-    return ast;
+    return this.visitExpression(ast, context);
   }
   visitFunctionExpr(ast: FunctionExpr, context: any): any {
     this.visitAllStatements(ast.statements, context);
-    return ast;
+    return this.visitExpression(ast, context);
   }
   visitBinaryOperatorExpr(ast: BinaryOperatorExpr, context: any): any {
     ast.lhs.visitExpression(this, context);
     ast.rhs.visitExpression(this, context);
-    return ast;
+    return this.visitExpression(ast, context);
   }
   visitReadPropExpr(ast: ReadPropExpr, context: any): any {
     ast.receiver.visitExpression(this, context);
-    return ast;
+    return this.visitExpression(ast, context);
   }
   visitReadKeyExpr(ast: ReadKeyExpr, context: any): any {
     ast.receiver.visitExpression(this, context);
     ast.index.visitExpression(this, context);
-    return ast;
+    return this.visitExpression(ast, context);
   }
   visitLiteralArrayExpr(ast: LiteralArrayExpr, context: any): any {
     this.visitAllExpressions(ast.entries, context);
-    return ast;
+    return this.visitExpression(ast, context);
   }
   visitLiteralMapExpr(ast: LiteralMapExpr, context: any): any {
     ast.entries.forEach((entry) => entry.value.visitExpression(this, context));
-    return ast;
+    return this.visitExpression(ast, context);
   }
   visitCommaExpr(ast: CommaExpr, context: any): any {
     this.visitAllExpressions(ast.parts, context);
+    return this.visitExpression(ast, context);
   }
   visitAllExpressions(exprs: Expression[], context: any): void {
     exprs.forEach(expr => expr.visitExpression(this, context));
   }
 
   visitDeclareVarStmt(stmt: DeclareVarStmt, context: any): any {
-    stmt.value.visitExpression(this, context);
+    if (stmt.value) {
+      stmt.value.visitExpression(this, context);
+    }
+    if (stmt.type) {
+      stmt.type.visitType(this, context);
+    }
     return stmt;
   }
   visitDeclareFunctionStmt(stmt: DeclareFunctionStmt, context: any): any {
     this.visitAllStatements(stmt.statements, context);
+    if (stmt.type) {
+      stmt.type.visitType(this, context);
+    }
     return stmt;
   }
   visitExpressionStmt(stmt: ExpressionStatement, context: any): any {
@@ -1002,7 +1571,7 @@ export class RecursiveAstVisitor implements StatementVisitor, ExpressionVisitor 
     return stmt;
   }
   visitDeclareClassStmt(stmt: ClassStmt, context: any): any {
-    stmt.parent !.visitExpression(this, context);
+    stmt.parent!.visitExpression(this, context);
     stmt.getters.forEach(getter => this.visitAllStatements(getter.body, context));
     if (stmt.constructorMethod) {
       this.visitAllStatements(stmt.constructorMethod.body, context);
@@ -1025,7 +1594,12 @@ export class RecursiveAstVisitor implements StatementVisitor, ExpressionVisitor 
     stmt.error.visitExpression(this, context);
     return stmt;
   }
-  visitCommentStmt(stmt: CommentStmt, context: any): any { return stmt; }
+  visitCommentStmt(stmt: CommentStmt, context: any): any {
+    return stmt;
+  }
+  visitJSDocCommentStmt(stmt: JSDocCommentStmt, context: any): any {
+    return stmt;
+  }
   visitAllStatements(stmts: Statement[], context: any): void {
     stmts.forEach(stmt => stmt.visitStatement(this, context));
   }
@@ -1055,8 +1629,22 @@ class _ReadVarVisitor extends RecursiveAstVisitor {
   }
 }
 
+export function collectExternalReferences(stmts: Statement[]): ExternalReference[] {
+  const visitor = new _FindExternalReferencesVisitor();
+  visitor.visitAllStatements(stmts, null);
+  return visitor.externalReferences;
+}
+
+class _FindExternalReferencesVisitor extends RecursiveAstVisitor {
+  externalReferences: ExternalReference[] = [];
+  visitExternalExpr(e: ExternalExpr, context: any) {
+    this.externalReferences.push(e.value);
+    return super.visitExternalExpr(e, context);
+  }
+}
+
 export function applySourceSpanToStatementIfNeeded(
-    stmt: Statement, sourceSpan: ParseSourceSpan | null): Statement {
+    stmt: Statement, sourceSpan: ParseSourceSpan|null): Statement {
   if (!sourceSpan) {
     return stmt;
   }
@@ -1065,7 +1653,7 @@ export function applySourceSpanToStatementIfNeeded(
 }
 
 export function applySourceSpanToExpressionIfNeeded(
-    expr: Expression, sourceSpan: ParseSourceSpan | null): Expression {
+    expr: Expression, sourceSpan: ParseSourceSpan|null): Expression {
   if (!sourceSpan) {
     return expr;
   }
@@ -1074,10 +1662,12 @@ export function applySourceSpanToExpressionIfNeeded(
 }
 
 class _ApplySourceSpanTransformer extends AstTransformer {
-  constructor(private sourceSpan: ParseSourceSpan) { super(); }
+  constructor(private sourceSpan: ParseSourceSpan) {
+    super();
+  }
   private _clone(obj: any): any {
     const clone = Object.create(obj.constructor.prototype);
-    for (let prop in obj) {
+    for (let prop of Object.keys(obj)) {
       clone[prop] = obj[prop];
     }
     return clone;
@@ -1101,51 +1691,128 @@ class _ApplySourceSpanTransformer extends AstTransformer {
 }
 
 export function variable(
-    name: string, type?: Type | null, sourceSpan?: ParseSourceSpan | null): ReadVarExpr {
+    name: string, type?: Type|null, sourceSpan?: ParseSourceSpan|null): ReadVarExpr {
   return new ReadVarExpr(name, type, sourceSpan);
 }
 
 export function importExpr(
-    id: CompileIdentifierMetadata, typeParams: Type[] | null = null,
-    sourceSpan?: ParseSourceSpan | null): ExternalExpr {
+    id: ExternalReference, typeParams: Type[]|null = null,
+    sourceSpan?: ParseSourceSpan|null): ExternalExpr {
   return new ExternalExpr(id, null, typeParams, sourceSpan);
 }
 
 export function importType(
-    id: CompileIdentifierMetadata, typeParams: Type[] | null = null,
-    typeModifiers: TypeModifier[] | null = null): ExpressionType|null {
+    id: ExternalReference, typeParams: Type[]|null = null,
+    typeModifiers: TypeModifier[]|null = null): ExpressionType|null {
   return id != null ? expressionType(importExpr(id, typeParams, null), typeModifiers) : null;
 }
 
 export function expressionType(
-    expr: Expression, typeModifiers: TypeModifier[] | null = null): ExpressionType|null {
-  return expr != null ? new ExpressionType(expr, typeModifiers) ! : null;
+    expr: Expression, typeModifiers: TypeModifier[]|null = null,
+    typeParams: Type[]|null = null): ExpressionType {
+  return new ExpressionType(expr, typeModifiers, typeParams);
+}
+
+export function typeofExpr(expr: Expression) {
+  return new TypeofExpr(expr);
 }
 
 export function literalArr(
-    values: Expression[], type?: Type | null,
-    sourceSpan?: ParseSourceSpan | null): LiteralArrayExpr {
+    values: Expression[], type?: Type|null, sourceSpan?: ParseSourceSpan|null): LiteralArrayExpr {
   return new LiteralArrayExpr(values, type, sourceSpan);
 }
 
 export function literalMap(
-    values: [string, Expression][], type: MapType | null = null,
-    quoted: boolean = false): LiteralMapExpr {
+    values: {key: string, quoted: boolean, value: Expression}[],
+    type: MapType|null = null): LiteralMapExpr {
   return new LiteralMapExpr(
-      values.map(entry => new LiteralMapEntry(entry[0], entry[1], quoted)), type, null);
+      values.map(e => new LiteralMapEntry(e.key, e.value, e.quoted)), type, null);
 }
 
-export function not(expr: Expression, sourceSpan?: ParseSourceSpan | null): NotExpr {
+export function not(expr: Expression, sourceSpan?: ParseSourceSpan|null): NotExpr {
   return new NotExpr(expr, sourceSpan);
 }
 
+export function assertNotNull(expr: Expression, sourceSpan?: ParseSourceSpan|null): AssertNotNull {
+  return new AssertNotNull(expr, sourceSpan);
+}
+
 export function fn(
-    params: FnParam[], body: Statement[], type?: Type | null,
-    sourceSpan?: ParseSourceSpan | null): FunctionExpr {
-  return new FunctionExpr(params, body, type, sourceSpan);
+    params: FnParam[], body: Statement[], type?: Type|null, sourceSpan?: ParseSourceSpan|null,
+    name?: string|null): FunctionExpr {
+  return new FunctionExpr(params, body, type, sourceSpan, name);
+}
+
+export function ifStmt(condition: Expression, thenClause: Statement[], elseClause?: Statement[]) {
+  return new IfStmt(condition, thenClause, elseClause);
 }
 
 export function literal(
-    value: any, type?: Type | null, sourceSpan?: ParseSourceSpan | null): LiteralExpr {
+    value: any, type?: Type|null, sourceSpan?: ParseSourceSpan|null): LiteralExpr {
   return new LiteralExpr(value, type, sourceSpan);
+}
+
+export function localizedString(
+    metaBlock: I18nMeta, messageParts: string[], placeholderNames: string[],
+    expressions: Expression[], sourceSpan?: ParseSourceSpan|null): LocalizedString {
+  return new LocalizedString(metaBlock, messageParts, placeholderNames, expressions, sourceSpan);
+}
+
+export function isNull(exp: Expression): boolean {
+  return exp instanceof LiteralExpr && exp.value === null;
+}
+
+// The list of JSDoc tags that we currently support. Extend it if needed.
+export const enum JSDocTagName {
+  Desc = 'desc',
+  Id = 'id',
+  Meaning = 'meaning',
+}
+
+/*
+ * TypeScript has an API for JSDoc already, but it's not exposed.
+ * https://github.com/Microsoft/TypeScript/issues/7393
+ * For now we create types that are similar to theirs so that migrating
+ * to their API will be easier. See e.g. `ts.JSDocTag` and `ts.JSDocComment`.
+ */
+export type JSDocTag = {
+  // `tagName` is e.g. "param" in an `@param` declaration
+  tagName: JSDocTagName|string,
+  // Any remaining text on the tag, e.g. the description
+  text?: string,
+}|{
+  // no `tagName` for plain text documentation that occurs before any `@param` lines
+  tagName?: undefined, text: string,
+};
+
+/*
+ * Serializes a `Tag` into a string.
+ * Returns a string like " @foo {bar} baz" (note the leading whitespace before `@foo`).
+ */
+function tagToString(tag: JSDocTag): string {
+  let out = '';
+  if (tag.tagName) {
+    out += ` @${tag.tagName}`;
+  }
+  if (tag.text) {
+    if (tag.text.match(/\/\*|\*\//)) {
+      throw new Error('JSDoc text cannot contain "/*" and "*/"');
+    }
+    out += ' ' + tag.text.replace(/@/g, '\\@');
+  }
+  return out;
+}
+
+function serializeTags(tags: JSDocTag[]): string {
+  if (tags.length === 0) return '';
+
+  let out = '*\n';
+  for (const tag of tags) {
+    out += ' *';
+    // If the tagToString is multi-line, insert " * " prefixes on subsequent lines.
+    out += tagToString(tag).replace(/\n/g, '\n * ');
+    out += '\n';
+  }
+  out += ' ';
+  return out;
 }

@@ -1,14 +1,15 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {core} from '@angular/compiler';
 import {DirectiveResolver} from '@angular/compiler/src/directive_resolver';
 import {Component, ContentChild, ContentChildren, Directive, HostBinding, HostListener, Input, Output, ViewChild, ViewChildren} from '@angular/core/src/metadata';
-import {reflector} from '@angular/core/src/reflection/reflection';
+import {JitReflector} from '@angular/platform-browser-dynamic/src/compiler_reflector';
 
 @Directive({selector: 'someDirective'})
 class SomeDirective {
@@ -31,13 +32,16 @@ class SomeDirectiveWithOutputs {
 @Directive({selector: 'someDirective'})
 class SomeDirectiveWithSetterProps {
   @Input('renamed')
-  set a(value: any) {}
+  set a(value: any) {
+  }
 }
 
 @Directive({selector: 'someDirective'})
 class SomeDirectiveWithGetterOutputs {
   @Output('renamed')
-  get a(): any { return null; }
+  get a(): any {
+    return null;
+  }
 }
 
 @Directive({selector: 'someDirective', host: {'[c]': 'c'}})
@@ -50,9 +54,11 @@ class SomeDirectiveWithHostBindings {
 @Directive({selector: 'someDirective', host: {'(c)': 'onC()'}})
 class SomeDirectiveWithHostListeners {
   @HostListener('a')
-  onA() {}
+  onA() {
+  }
   @HostListener('b', ['$event.value'])
-  onB(value: any) {}
+  onB(value: any) {
+  }
 }
 
 @Directive({selector: 'someDirective', queries: {'cs': new ContentChildren('c')}})
@@ -79,7 +85,12 @@ class SomeDirectiveWithViewChild {
   c: any;
 }
 
-@Component({selector: 'sample', template: 'some template', styles: ['some styles']})
+@Component({
+  selector: 'sample',
+  template: 'some template',
+  styles: ['some styles'],
+  preserveWhitespaces: true
+})
 class ComponentWithTemplate {
 }
 
@@ -95,28 +106,39 @@ class SomeDirectiveWithSameHostBindingAndInput {
 @Directive({selector: 'someDirective'})
 class SomeDirectiveWithMalformedHostBinding1 {
   @HostBinding('(a)')
-  onA() {}
+  onA() {
+  }
 }
 
 @Directive({selector: 'someDirective'})
 class SomeDirectiveWithMalformedHostBinding2 {
   @HostBinding('[a]')
-  onA() {}
+  onA() {
+  }
 }
 
 class SomeDirectiveWithoutMetadata {}
 
-export function main() {
+{
   describe('DirectiveResolver', () => {
     let resolver: DirectiveResolver;
 
-    beforeEach(() => { resolver = new DirectiveResolver(); });
+    beforeEach(() => {
+      resolver = new DirectiveResolver(new JitReflector());
+    });
 
     it('should read out the Directive metadata', () => {
       const directiveMetadata = resolver.resolve(SomeDirective);
-      expect(directiveMetadata)
-          .toEqual(new Directive(
-              {selector: 'someDirective', inputs: [], outputs: [], host: {}, queries: {}}));
+      expect(directiveMetadata).toEqual(core.createDirective({
+        selector: 'someDirective',
+        inputs: [],
+        outputs: [],
+        host: {},
+        queries: {},
+        guards: {},
+        exportAs: undefined,
+        providers: undefined
+      }));
     });
 
     it('should throw if not matching metadata is found', () => {
@@ -136,11 +158,27 @@ export function main() {
       class ChildWithDecorator extends Parent {
       }
 
-      expect(resolver.resolve(ChildNoDecorator))
-          .toEqual(new Directive({selector: 'p', inputs: [], outputs: [], host: {}, queries: {}}));
+      expect(resolver.resolve(ChildNoDecorator)).toEqual(core.createDirective({
+        selector: 'p',
+        inputs: [],
+        outputs: [],
+        host: {},
+        queries: {},
+        guards: {},
+        exportAs: undefined,
+        providers: undefined
+      }));
 
-      expect(resolver.resolve(ChildWithDecorator))
-          .toEqual(new Directive({selector: 'c', inputs: [], outputs: [], host: {}, queries: {}}));
+      expect(resolver.resolve(ChildWithDecorator)).toEqual(core.createDirective({
+        selector: 'c',
+        inputs: [],
+        outputs: [],
+        host: {},
+        queries: {},
+        guards: {},
+        exportAs: undefined,
+        providers: undefined
+      }));
     });
 
     describe('inputs', () => {
@@ -175,8 +213,7 @@ export function main() {
       it('should prefer @Input over @Directive.inputs', () => {
         @Directive({selector: 'someDirective', inputs: ['a']})
         class SomeDirectiveWithDuplicateInputs {
-          @Input('a')
-          propA: any;
+          @Input('a') propA: any;
         }
         const directiveMetadata = resolver.resolve(SomeDirectiveWithDuplicateInputs);
         expect(directiveMetadata.inputs).toEqual(['propA: a']);
@@ -185,17 +222,13 @@ export function main() {
       it('should support inheriting inputs', () => {
         @Directive({selector: 'p'})
         class Parent {
-          @Input()
-          p1: any;
-          @Input('p21')
-          p2: any;
+          @Input() p1: any;
+          @Input('p21') p2: any;
         }
 
         class Child extends Parent {
-          @Input('p22')
-          p2: any;
-          @Input()
-          p3: any;
+          @Input('p22') p2: any;
+          @Input() p3: any;
         }
 
         const directiveMetadata = resolver.resolve(Child);
@@ -235,8 +268,7 @@ export function main() {
       it('should prefer @Output over @Directive.outputs', () => {
         @Directive({selector: 'someDirective', outputs: ['a']})
         class SomeDirectiveWithDuplicateOutputs {
-          @Output('a')
-          propA: any;
+          @Output('a') propA: any;
         }
         const directiveMetadata = resolver.resolve(SomeDirectiveWithDuplicateOutputs);
         expect(directiveMetadata.outputs).toEqual(['propA: a']);
@@ -245,17 +277,13 @@ export function main() {
       it('should support inheriting outputs', () => {
         @Directive({selector: 'p'})
         class Parent {
-          @Output()
-          p1: any;
-          @Output('p21')
-          p2: any;
+          @Output() p1: any;
+          @Output('p21') p2: any;
         }
 
         class Child extends Parent {
-          @Output('p22')
-          p2: any;
-          @Output()
-          p3: any;
+          @Output('p22') p2: any;
+          @Output() p3: any;
         }
 
         const directiveMetadata = resolver.resolve(Child);
@@ -295,17 +323,13 @@ export function main() {
       it('should support inheriting host bindings', () => {
         @Directive({selector: 'p'})
         class Parent {
-          @HostBinding()
-          p1: any;
-          @HostBinding('p21')
-          p2: any;
+          @HostBinding() p1: any;
+          @HostBinding('p21') p2: any;
         }
 
         class Child extends Parent {
-          @HostBinding('p22')
-          p2: any;
-          @HostBinding()
-          p3: any;
+          @HostBinding('p22') p2: any;
+          @HostBinding() p3: any;
         }
 
         const directiveMetadata = resolver.resolve(Child);
@@ -317,16 +341,20 @@ export function main() {
         @Directive({selector: 'p'})
         class Parent {
           @HostListener('p1')
-          p1() {}
+          p1() {
+          }
           @HostListener('p21')
-          p2() {}
+          p2() {
+          }
         }
 
         class Child extends Parent {
           @HostListener('p22')
-          p2() {}
+          p2() {
+          }
           @HostListener('p3')
-          p3() {}
+          p3() {
+          }
         }
 
         const directiveMetadata = resolver.resolve(Child);
@@ -337,19 +365,20 @@ export function main() {
       it('should combine host bindings and listeners during inheritance', () => {
         @Directive({selector: 'p'})
         class Parent {
-          @HostListener('p11') @HostListener('p12')
-          p1() {}
+          @HostListener('p11')
+          @HostListener('p12')
+          p1() {
+          }
 
-          @HostBinding('p21') @HostBinding('p22')
-          p2: any;
+          @HostBinding('p21') @HostBinding('p22') p2: any;
         }
 
         class Child extends Parent {
           @HostListener('c1')
-          p1() {}
+          p1() {
+          }
 
-          @HostBinding('c2')
-          p2: any;
+          @HostBinding('c2') p2: any;
         }
 
         const directiveMetadata = resolver.resolve(Child);
@@ -392,17 +421,13 @@ export function main() {
       it('should support inheriting queries', () => {
         @Directive({selector: 'p'})
         class Parent {
-          @ContentChild('p1')
-          p1: any;
-          @ContentChild('p21')
-          p2: any;
+          @ContentChild('p1') p1: any;
+          @ContentChild('p21') p2: any;
         }
 
         class Child extends Parent {
-          @ContentChild('p22')
-          p2: any;
-          @ContentChild('p3')
-          p3: any;
+          @ContentChild('p22') p2: any;
+          @ContentChild('p3') p3: any;
         }
 
         const directiveMetadata = resolver.resolve(Child);
@@ -419,6 +444,7 @@ export function main() {
         const compMetadata: Component = resolver.resolve(ComponentWithTemplate);
         expect(compMetadata.template).toEqual('some template');
         expect(compMetadata.styles).toEqual(['some styles']);
+        expect(compMetadata.preserveWhitespaces).toBe(true);
       });
     });
   });

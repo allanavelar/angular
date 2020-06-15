@@ -1,16 +1,10 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-
-import {Inject, InjectionToken, PACKAGE_ROOT_URL} from '@angular/core';
-
-import {CompilerInjectable} from './injectable';
-
-
 
 /**
  * Create a {@link UrlResolver} with no package prefix.
@@ -22,14 +16,6 @@ export function createUrlResolverWithoutPackagePrefix(): UrlResolver {
 export function createOfflineCompileUrlResolver(): UrlResolver {
   return new UrlResolver('.');
 }
-
-/**
- * A default provider for {@link PACKAGE_ROOT_URL} that maps to '/'.
- */
-export const DEFAULT_PACKAGE_URL_PROVIDER = {
-  provide: PACKAGE_ROOT_URL,
-  useValue: '/'
-};
 
 /**
  * Used by the {@link Compiler} when resolving HTML and CSS template URLs.
@@ -47,9 +33,16 @@ export const DEFAULT_PACKAGE_URL_PROVIDER = {
  * Attacker-controlled data introduced by a template could expose your
  * application to XSS risks. For more detail, see the [Security Guide](http://g.co/ng/security).
  */
-@CompilerInjectable()
-export class UrlResolver {
-  constructor(@Inject(PACKAGE_ROOT_URL) private _packagePrefix: string|null = null) {}
+export interface UrlResolver {
+  resolve(baseUrl: string, url: string): string;
+}
+
+export interface UrlResolverCtor {
+  new(packagePrefix?: string|null): UrlResolver;
+}
+
+export const UrlResolver: UrlResolverCtor = class UrlResolverImpl {
+  constructor(private _packagePrefix: string|null = null) {}
 
   /**
    * Resolves the `url` given the `baseUrl`:
@@ -75,7 +68,7 @@ export class UrlResolver {
     }
     return resolvedUrl;
   }
-}
+};
 
 /**
  * Extract the scheme of a URL.
@@ -202,7 +195,6 @@ function _buildFromEncodedParts(
  *    $6 = <undefined>       query without ?
  *    $7 = Related           fragment without #
  * </pre>
- * @type {!RegExp}
  * @internal
  */
 const _splitRe = new RegExp(
@@ -254,16 +246,16 @@ enum _ComponentIndex {
  *     arbitrary strings may still look like path names.
  */
 function _split(uri: string): Array<string|any> {
-  return uri.match(_splitRe) !;
+  return uri.match(_splitRe)!;
 }
 
 /**
-  * Removes dot segments in given path component, as described in
-  * RFC 3986, section 5.2.4.
-  *
-  * @param path A non-empty path component.
-  * @return Path component with removed dot segments.
-  */
+ * Removes dot segments in given path component, as described in
+ * RFC 3986, section 5.2.4.
+ *
+ * @param path A non-empty path component.
+ * @return Path component with removed dot segments.
+ */
 function _removeDotSegments(path: string): string {
   if (path == '/') return '/';
 

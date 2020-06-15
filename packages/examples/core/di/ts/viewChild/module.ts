@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -15,3 +15,5 @@ import {Pane, ViewChildComp} from './view_child_example';
     {imports: [BrowserModule], declarations: [ViewChildComp, Pane], bootstrap: [ViewChildComp]})
 export class AppModule {
 }
+
+export {ViewChildComp as AppComponent};

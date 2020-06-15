@@ -1,24 +1,26 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 /**
- * @module
- * @description
- * The `di` module provides dependency injection container services.
+ * This file should not be necessary because node resolution should just default to `./di/index`!
+ *
+ * However it does not seem to work and it breaks:
+ *  - //packages/animations/browser/test:test_web_chromium-local
+ *  - //packages/compiler-cli/test:extract_i18n
+ *  - //packages/compiler-cli/test:ngc
+ *  - //packages/compiler-cli/test:perform_watch
+ *  - //packages/compiler-cli/test/diagnostics:check_types
+ *  - //packages/compiler-cli/test/transformers:test
+ *  - //packages/compiler/test:test
+ *  - //tools/public_api_guard:core_api
+ *
+ * Remove this file once the above is solved or wait until `ngc` is deleted and then it should be
+ * safe to delete this file.
  */
 
-export * from './di/metadata';
-
-export {forwardRef, resolveForwardRef, ForwardRefFn} from './di/forward_ref';
-
-export {Injector} from './di/injector';
-export {ReflectiveInjector} from './di/reflective_injector';
-export {Provider, TypeProvider, ValueProvider, ClassProvider, ExistingProvider, FactoryProvider} from './di/provider';
-export {ResolvedReflectiveFactory, ResolvedReflectiveProvider} from './di/reflective_provider';
-export {ReflectiveKey} from './di/reflective_key';
-export {InjectionToken, OpaqueToken} from './di/injection_token';
+export * from './di/index';

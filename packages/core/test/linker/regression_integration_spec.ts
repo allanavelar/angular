@@ -1,30 +1,45 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ANALYZE_FOR_ENTRY_COMPONENTS, Component, ContentChild, Directive, InjectionToken, Injector, Input, Pipe, PipeTransform, Provider, QueryList, Renderer2, SimpleChanges, TemplateRef, ViewChildren, ViewContainerRef} from '@angular/core';
-import {TestBed, fakeAsync, tick} from '@angular/core/testing';
-import {By} from '@angular/platform-browser';
+import {DOCUMENT, ɵgetDOM as getDOM} from '@angular/common';
+import {ANALYZE_FOR_ENTRY_COMPONENTS, ApplicationRef, Component, ComponentRef, ContentChild, destroyPlatform, Directive, ErrorHandler, EventEmitter, HostListener, InjectionToken, Injector, Input, NgModule, NgModuleRef, NgZone, Output, Pipe, PipeTransform, Provider, QueryList, Renderer2, SimpleChanges, TemplateRef, ViewChild, ViewChildren, ViewContainerRef, ɵivyEnabled as ivyEnabled} from '@angular/core';
+import {fakeAsync, inject, TestBed, tick} from '@angular/core/testing';
+import {BrowserModule, By} from '@angular/platform-browser';
+import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
+import {modifiedInIvy, onlyInIvy} from '@angular/private/testing';
 
-export function main() {
-  describe('jit', () => { declareTests({useJit: true}); });
-
-  describe('no jit', () => { declareTests({useJit: false}); });
+if (ivyEnabled) {
+  describe('ivy', () => {
+    declareTests();
+  });
+} else {
+  describe('jit', () => {
+    declareTests({useJit: true});
+  });
+  describe('no jit', () => {
+    declareTests({useJit: false});
+  });
 }
 
-function declareTests({useJit}: {useJit: boolean}) {
+declareTestsUsingBootstrap();
+
+function declareTests(config?: {useJit: boolean}) {
   // Place to put reproductions for regressions
   describe('regressions', () => {
-
-    beforeEach(() => { TestBed.configureTestingModule({declarations: [MyComp1, PlatformPipe]}); });
+    beforeEach(() => {
+      TestBed.configureTestingModule({declarations: [MyComp1, PlatformPipe]});
+    });
 
     describe('platform pipes', () => {
-      beforeEach(() => { TestBed.configureCompiler({useJit: useJit}); });
+      beforeEach(() => {
+        TestBed.configureCompiler({...config});
+      });
 
       it('should overwrite them by custom pipes', () => {
         TestBed.configureTestingModule({declarations: [CustomPipe]});
@@ -77,14 +92,21 @@ function declareTests({useJit}: {useJit: boolean}) {
            @Directive({selector: '[myDir]'})
            class MyDir {
              setterCalls: {[key: string]: any} = {};
-             changes: SimpleChanges;
+             // TODO(issue/24571): remove '!'.
+             changes!: SimpleChanges;
 
              @Input()
-             set a(v: number) { this.setterCalls['a'] = v; }
+             set a(v: number) {
+               this.setterCalls['a'] = v;
+             }
              @Input()
-             set b(v: number) { this.setterCalls['b'] = v; }
+             set b(v: number) {
+               this.setterCalls['b'] = v;
+             }
 
-             ngOnChanges(changes: SimpleChanges) { this.changes = changes; }
+             ngOnChanges(changes: SimpleChanges) {
+               this.changes = changes;
+             }
            }
 
            TestBed.configureTestingModule({declarations: [MyDir, MyComp]});
@@ -117,10 +139,11 @@ function declareTests({useJit}: {useJit: boolean}) {
         expect(MyCountingComp.calls).toBe(1);
       });
 
-      it('should evalute a conditional in a statement binding', () => {
+      it('should evaluate a conditional in a statement binding', () => {
         @Component({selector: 'some-comp', template: '<p (click)="nullValue?.click()"></p>'})
         class SomeComponent {
-          nullValue: SomeReferencedClass;
+          // TODO(issue/24571): remove '!'.
+          nullValue!: SomeReferencedClass;
         }
 
         class SomeReferencedClass {
@@ -187,20 +210,17 @@ function declareTests({useJit}: {useJit: boolean}) {
       });
 
       describe('ANALYZE_FOR_ENTRY_COMPONENTS providers', () => {
-
         it('should support class instances', () => {
           class SomeObject {
             someMethod() {}
           }
 
-          expect(
-              () => createInjector([
-                {provide: ANALYZE_FOR_ENTRY_COMPONENTS, useValue: new SomeObject(), multi: true}
-              ]))
+          expect(() => createInjector([
+                   {provide: ANALYZE_FOR_ENTRY_COMPONENTS, useValue: new SomeObject(), multi: true}
+                 ]))
               .not.toThrow();
         });
       });
-
     });
 
     it('should allow logging a previous elements class binding via interpolation', () => {
@@ -238,14 +258,14 @@ function declareTests({useJit}: {useJit: boolean}) {
         return MyComponent;
       }
       const HeroComponent = ComponentFactory('my-hero', 'my hero');
-      const VillianComponent = ComponentFactory('a-villian', 'a villian');
+      const VillainComponent = ComponentFactory('a-villain', 'a villain');
       const MainComponent = ComponentFactory(
-          'my-app', 'I was saved by <my-hero></my-hero> from <a-villian></a-villian>.');
+          'my-app', 'I was saved by <my-hero></my-hero> from <a-villain></a-villain>.');
 
       TestBed.configureTestingModule(
-          {declarations: [HeroComponent, VillianComponent, MainComponent]});
+          {declarations: [HeroComponent, VillainComponent, MainComponent]});
       const fixture = TestBed.createComponent(MainComponent);
-      expect(fixture.nativeElement).toHaveText('I was saved by my hero from a villian.');
+      expect(fixture.nativeElement).toHaveText('I was saved by my hero from a villain.');
     });
 
     it('should allow to use the renderer outside of views', () => {
@@ -268,7 +288,8 @@ function declareTests({useJit}: {useJit: boolean}) {
 
       @Directive({selector: '[someDir]'})
       class MyDir {
-        @Input('someDir') template: TemplateRef<any>;
+        // TODO(issue/24571): remove '!'.
+        @Input('someDir') template !: TemplateRef<any>;
       }
 
       const ctx =
@@ -288,8 +309,8 @@ function declareTests({useJit}: {useJit: boolean}) {
     it('should not recreate ViewContainerRefs in queries', () => {
       @Component({template: '<div #vc></div><div *ngIf="show" #vc></div>'})
       class MyComp {
-        @ViewChildren('vc', {read: ViewContainerRef})
-        viewContainers: QueryList<ViewContainerRef>;
+        // TODO(issue/24571): remove '!'.
+        @ViewChildren('vc', {read: ViewContainerRef}) viewContainers!: QueryList<ViewContainerRef>;
 
         show = true;
       }
@@ -307,6 +328,13 @@ function declareTests({useJit}: {useJit: boolean}) {
       expect(ctx.componentInstance.viewContainers.first).toBe(vc);
     });
 
+    it('should not throw when encountering an empty class attribute', () => {
+      const template = '<div class=""></div>';
+      TestBed.overrideComponent(MyComp1, {set: {template}});
+
+      expect(() => TestBed.createComponent(MyComp1)).not.toThrow();
+    });
+
     describe('empty templates - #15143', () => {
       it('should allow empty components', () => {
         @Component({template: ''})
@@ -320,51 +348,218 @@ function declareTests({useJit}: {useJit: boolean}) {
         expect(fixture.debugElement.childNodes.length).toBe(0);
       });
 
-      it('should allow empty embedded templates', () => {
-        @Component({template: '<ng-template [ngIf]="true"></ng-template>'})
-        class MyComp {
-        }
+      modifiedInIvy('Comment node order changed')
+          .it('should allow empty embedded templates', () => {
+            @Component({template: '<ng-template [ngIf]="true"></ng-template>'})
+            class MyComp {
+            }
 
-        const fixture =
-            TestBed.configureTestingModule({declarations: [MyComp]}).createComponent(MyComp);
-        fixture.detectChanges();
+            const fixture =
+                TestBed.configureTestingModule({declarations: [MyComp]}).createComponent(MyComp);
+            fixture.detectChanges();
 
-        // Note: We always need to create at least a comment in an embedded template,
-        // so we can append other templates after it.
-        // 1 comment for the anchor,
-        // 1 comment for the empty embedded template.
-        expect(fixture.debugElement.childNodes.length).toBe(2);
-      });
+            // Note: We always need to create at least a comment in an embedded template,
+            // so we can append other templates after it.
+            // 1 comment for the anchor,
+            // 1 comment for the empty embedded template.
+            expect(fixture.debugElement.childNodes.length).toBe(2);
+          });
     });
 
-    it('should support @ContentChild and @Input on the same property for static queries', () => {
-      @Directive({selector: 'test'})
-      class Test {
-        @Input() @ContentChild(TemplateRef) tpl: TemplateRef<any>;
-      }
+    modifiedInIvy('Static ViewChild and ContentChild queries are resolved in update mode')
+        .it('should support @ContentChild and @Input on the same property for static queries',
+            () => {
+              @Directive({selector: 'test'})
+              class Test {
+                // TODO(issue/24571): remove '!'.
+                @Input() @ContentChild(TemplateRef, {static: true}) tpl!: TemplateRef<any>;
+              }
 
-      @Component({
-        selector: 'my-app',
-        template: `
+              @Component({
+                selector: 'my-app',
+                template: `
           <test></test><br>
           <test><ng-template>Custom as a child</ng-template></test><br>
           <ng-template #custom>Custom as a binding</ng-template>
           <test [tpl]="custom"></test><br>
         `
-      })
+              })
+              class App {
+              }
+
+              const fixture =
+                  TestBed.configureTestingModule({declarations: [App, Test]}).createComponent(App);
+              fixture.detectChanges();
+
+              const testDirs = fixture.debugElement.queryAll(By.directive(Test))
+                                   .map(el => el.injector.get(Test));
+              expect(testDirs[0].tpl).toBeUndefined();
+              expect(testDirs[1].tpl).toBeDefined();
+              expect(testDirs[2].tpl).toBeDefined();
+            });
+
+    onlyInIvy('Ivy does not support @ContentChild and @Input on the same property')
+        .it('should throw if @ContentChild and @Input are on the same property', () => {
+          @Directive({selector: 'test'})
+          class Test {
+            @Input() @ContentChild(TemplateRef, {static: true}) tpl!: TemplateRef<any>;
+          }
+
+          @Component({selector: 'my-app', template: `<test></test>`})
+          class App {
+          }
+
+          expect(() => {
+            TestBed.configureTestingModule({declarations: [App, Test]}).createComponent(App);
+          }).toThrowError(/Cannot combine @Input decorators with query decorators/);
+        });
+
+    it('should not add ng-version for dynamically created components', () => {
+      @Component({template: ''})
       class App {
       }
 
-      const fixture =
-          TestBed.configureTestingModule({declarations: [App, Test]}).createComponent(App);
-      fixture.detectChanges();
+      @NgModule({declarations: [App], entryComponents: [App]})
+      class MyModule {
+      }
 
-      const testDirs =
-          fixture.debugElement.queryAll(By.directive(Test)).map(el => el.injector.get(Test));
-      expect(testDirs[0].tpl).toBeUndefined();
-      expect(testDirs[1].tpl).toBeDefined();
-      expect(testDirs[2].tpl).toBeDefined();
+      const modRef = TestBed.configureTestingModule({imports: [MyModule]}).get(NgModuleRef) as
+          NgModuleRef<MyModule>;
+      const compRef =
+          modRef.componentFactoryResolver.resolveComponentFactory(App).create(Injector.NULL);
+
+      expect(compRef.location.nativeElement.hasAttribute('ng-version')).toBe(false);
     });
+  });
+}
+
+function declareTestsUsingBootstrap() {
+  // Place to put reproductions for regressions
+  describe('regressions using bootstrap', () => {
+    const COMP_SELECTOR = 'root-comp';
+
+    class MockConsole {
+      errors: any[][] = [];
+      error(...s: any[]): void {
+        this.errors.push(s);
+      }
+    }
+
+    let logger: MockConsole;
+    let errorHandler: ErrorHandler;
+
+    beforeEach(inject([DOCUMENT], (doc: any) => {
+      destroyPlatform();
+      const el = getDOM().createElement(COMP_SELECTOR, doc);
+      doc.body.appendChild(el);
+
+      logger = new MockConsole();
+      errorHandler = new ErrorHandler();
+      (errorHandler as any)._console = logger as any;
+    }));
+
+    afterEach(() => {
+      destroyPlatform();
+    });
+
+    if (getDOM().supportsDOMEvents()) {
+      // This test needs a real DOM....
+
+      it('should keep change detecting if there was an error', (done) => {
+        @Component({
+          selector: COMP_SELECTOR,
+          template:
+              '<button (click)="next()"></button><button (click)="nextAndThrow()"></button><button (dirClick)="nextAndThrow()"></button><span>Value:{{value}}</span><span>{{throwIfNeeded()}}</span>'
+        })
+        class ErrorComp {
+          value = 0;
+          thrownValue = 0;
+          next() {
+            this.value++;
+          }
+          nextAndThrow() {
+            this.value++;
+            this.throwIfNeeded();
+          }
+          throwIfNeeded() {
+            NgZone.assertInAngularZone();
+            if (this.thrownValue !== this.value) {
+              this.thrownValue = this.value;
+              throw new Error(`Error: ${this.value}`);
+            }
+          }
+        }
+
+        @Directive({selector: '[dirClick]'})
+        class EventDir {
+          @Output() dirClick = new EventEmitter();
+
+          @HostListener('click', ['$event'])
+          onClick(event: any) {
+            this.dirClick.next(event);
+          }
+        }
+
+        @NgModule({
+          imports: [BrowserModule],
+          declarations: [ErrorComp, EventDir],
+          bootstrap: [ErrorComp],
+          providers: [{provide: ErrorHandler, useValue: errorHandler}],
+        })
+        class TestModule {
+        }
+
+        platformBrowserDynamic().bootstrapModule(TestModule).then((ref) => {
+          NgZone.assertNotInAngularZone();
+          const appRef = ref.injector.get(ApplicationRef) as ApplicationRef;
+          const compRef = appRef.components[0] as ComponentRef<ErrorComp>;
+          const compEl = compRef.location.nativeElement;
+          const nextBtn = compEl.children[0];
+          const nextAndThrowBtn = compEl.children[1];
+          const nextAndThrowDirBtn = compEl.children[2];
+
+          // Note: the amount of events sent to the logger will differ between ViewEngine
+          // and Ivy, because Ivy doesn't attach an error context. This means that the amount
+          // of logged errors increases by 1 for Ivy and 2 for ViewEngine after each event.
+          const errorDelta = ivyEnabled ? 1 : 2;
+          let currentErrorIndex = 0;
+
+          nextBtn.click();
+          assertValueAndErrors(compEl, 1, currentErrorIndex);
+          currentErrorIndex += errorDelta;
+          nextBtn.click();
+          assertValueAndErrors(compEl, 2, currentErrorIndex);
+          currentErrorIndex += errorDelta;
+
+          nextAndThrowBtn.click();
+          assertValueAndErrors(compEl, 3, currentErrorIndex);
+          currentErrorIndex += errorDelta;
+          nextAndThrowBtn.click();
+          assertValueAndErrors(compEl, 4, currentErrorIndex);
+          currentErrorIndex += errorDelta;
+
+          nextAndThrowDirBtn.click();
+          assertValueAndErrors(compEl, 5, currentErrorIndex);
+          currentErrorIndex += errorDelta;
+          nextAndThrowDirBtn.click();
+          assertValueAndErrors(compEl, 6, currentErrorIndex);
+          currentErrorIndex += errorDelta;
+
+          // Assert that there were no more errors
+          expect(logger.errors.length).toBe(currentErrorIndex);
+          done();
+        });
+
+        function assertValueAndErrors(compEl: any, value: number, errorIndex: number) {
+          expect(compEl).toHaveText(`Value:${value}`);
+          expect(logger.errors[errorIndex][0]).toBe('ERROR');
+          expect(logger.errors[errorIndex][1].message).toBe(`Error: ${value}`);
+
+          // Ivy doesn't attach an error context.
+          !ivyEnabled && expect(logger.errors[errorIndex + 1][0]).toBe('ERROR CONTEXT');
+        }
+      });
+    }
   });
 }
 
@@ -375,12 +570,16 @@ class MyComp1 {
 
 @Pipe({name: 'somePipe', pure: true})
 class PlatformPipe implements PipeTransform {
-  transform(value: any): any { return 'somePlatformPipe'; }
+  transform(value: any): any {
+    return 'somePlatformPipe';
+  }
 }
 
 @Pipe({name: 'somePipe', pure: true})
 class CustomPipe implements PipeTransform {
-  transform(value: any): any { return 'someCustomPipe'; }
+  transform(value: any): any {
+    return 'someCustomPipe';
+  }
 }
 
 @Component({selector: 'cmp-content', template: `<ng-content></ng-content>`})
@@ -394,7 +593,9 @@ class MyCountingComp {
     return {value: 'counting method value'};
   }
 
-  static reset() { MyCountingComp.calls = 0; }
+  static reset() {
+    MyCountingComp.calls = 0;
+  }
   static calls = 0;
 }
 
@@ -404,7 +605,9 @@ class CountingPipe implements PipeTransform {
     CountingPipe.calls++;
     return {value: 'counting pipe value'};
   }
-  static reset() { CountingPipe.calls = 0; }
+  static reset() {
+    CountingPipe.calls = 0;
+  }
   static calls = 0;
 }
 

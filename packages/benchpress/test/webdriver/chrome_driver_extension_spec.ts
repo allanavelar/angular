@@ -1,17 +1,17 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AsyncTestCompleter, describe, expect, inject, it} from '@angular/core/testing/src/testing_internal';
+import {AsyncTestCompleter, describe, expect, fit, inject, it} from '@angular/core/testing/src/testing_internal';
 
-import {ChromeDriverExtension, Options, ReflectiveInjector, WebDriverAdapter, WebDriverExtension} from '../../index';
+import {ChromeDriverExtension, Injector, Options, WebDriverAdapter, WebDriverExtension} from '../../index';
 import {TraceEventFactory} from '../trace_event_factory';
 
-export function main() {
+{
   describe('chrome driver extension', () => {
     const CHROME45_USER_AGENT =
         '"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2499.0 Safari/537.36"';
@@ -32,7 +32,7 @@ export function main() {
     const normEvents = new TraceEventFactory('timeline', 'pid0');
 
     function createExtension(
-        perfRecords: any[] = null, userAgent: string = null,
+        perfRecords: any[]|null = null, userAgent: string|null = null,
         messageMethod = 'Tracing.dataCollected'): WebDriverExtension {
       if (!perfRecords) {
         perfRecords = [];
@@ -41,13 +41,14 @@ export function main() {
         userAgent = CHROME45_USER_AGENT;
       }
       log = [];
-      extension = ReflectiveInjector
-                      .resolveAndCreate([
+      extension = Injector
+                      .create([
                         ChromeDriverExtension.PROVIDERS, {
                           provide: WebDriverAdapter,
                           useValue: new MockDriverAdapter(log, perfRecords, messageMethod)
                         },
-                        {provide: Options.USER_AGENT, useValue: userAgent}
+                        {provide: Options.USER_AGENT, useValue: userAgent},
+                        {provide: Options.RAW_PERFLOG_PATH, useValue: null}
                       ])
                       .get(ChromeDriverExtension);
       return extension;
@@ -61,27 +62,44 @@ export function main() {
          });
        }));
 
-    it('should mark the timeline via console.time()',
+    it('should clear the perf logs and mark the timeline via performance.mark() on the first call',
        inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
-         createExtension().timeBegin('someName').then((_) => {
-           expect(log).toEqual([['executeScript', `console.time('someName');`]]);
+         createExtension().timeBegin('someName').then(() => {
+           expect(log).toEqual([
+             ['logs', 'performance'], ['executeScript', `performance.mark('someName-bpstart');`]
+           ]);
            async.done();
          });
        }));
 
-    it('should mark the timeline via console.timeEnd()',
+    it('should mark the timeline via performance.mark() on the second call',
+       inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
+         const ext = createExtension();
+         ext.timeBegin('someName')
+             .then((_) => {
+               log.splice(0, log.length);
+               ext.timeBegin('someName');
+             })
+             .then(() => {
+               expect(log).toEqual([['executeScript', `performance.mark('someName-bpstart');`]]);
+               async.done();
+             });
+       }));
+
+    it('should mark the timeline via performance.mark()',
        inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
          createExtension().timeEnd('someName', null).then((_) => {
-           expect(log).toEqual([['executeScript', `console.timeEnd('someName');`]]);
+           expect(log).toEqual([['executeScript', `performance.mark('someName-bpend');`]]);
            async.done();
          });
        }));
 
-    it('should mark the timeline via console.time() and console.timeEnd()',
+    it('should mark the timeline via performance.mark() with start and end of a test',
        inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
          createExtension().timeEnd('name1', 'name2').then((_) => {
-           expect(log).toEqual(
-               [['executeScript', `console.timeEnd('name1');console.time('name2');`]]);
+           expect(log).toEqual([
+             ['executeScript', `performance.mark('name1-bpend');performance.mark('name2-bpstart');`]
+           ]);
            async.done();
          });
        }));
@@ -155,7 +173,8 @@ export function main() {
              [
                chromeTimelineV8Events.start('MajorGC', 1000, {'usedHeapSizeBefore': 1000}),
                chromeTimelineV8Events.end('MajorGC', 2000, {'usedHeapSizeAfter': 0}),
-             ], )
+             ],
+             )
              .readPerfLog()
              .then((events) => {
                expect(events.length).toEqual(2);
@@ -174,7 +193,8 @@ export function main() {
                [
                  chrome45TimelineEvents.start(recordType, 1234),
                  chrome45TimelineEvents.end(recordType, 2345)
-               ], )
+               ],
+               )
                .readPerfLog()
                .then((events) => {
                  expect(events).toEqual([
@@ -192,7 +212,8 @@ export function main() {
              [
                chromeBlinkTimelineEvents.start('UpdateLayoutTree', 1234),
                chromeBlinkTimelineEvents.end('UpdateLayoutTree', 2345)
-             ], )
+             ],
+             )
              .readPerfLog()
              .then((events) => {
                expect(events).toEqual([
@@ -236,8 +257,10 @@ export function main() {
        }));
 
     it('should report receivedData', inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
-         createExtension([chrome45TimelineEvents.instant(
-                             'ResourceReceivedData', 1234, {'data': {'encodedDataLength': 987}})], )
+         createExtension(
+             [chrome45TimelineEvents.instant(
+                 'ResourceReceivedData', 1234, {'data': {'encodedDataLength': 987}})],
+             )
              .readPerfLog()
              .then((events) => {
                expect(events).toEqual(
@@ -247,9 +270,11 @@ export function main() {
        }));
 
     it('should report sendRequest', inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
-         createExtension([chrome45TimelineEvents.instant(
-                             'ResourceSendRequest', 1234,
-                             {'data': {'url': 'http://here', 'requestMethod': 'GET'}})], )
+         createExtension(
+             [chrome45TimelineEvents.instant(
+                 'ResourceSendRequest', 1234,
+                 {'data': {'url': 'http://here', 'requestMethod': 'GET'}})],
+             )
              .readPerfLog()
              .then((events) => {
                expect(events).toEqual([normEvents.instant(
@@ -259,7 +284,6 @@ export function main() {
        }));
 
     describe('readPerfLog (common)', () => {
-
       it('should execute a dummy script before reading them',
          inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
            // TODO(tbosch): This seems to be a bug in ChromeDriver:
@@ -278,7 +302,8 @@ export function main() {
                  [
                    chromeTimelineEvents.start(recordType, 1234),
                    chromeTimelineEvents.end(recordType, 2345)
-                 ], )
+                 ],
+                 )
                  .readPerfLog()
                  .then((events) => {
                    expect(events).toEqual([
@@ -319,7 +344,6 @@ export function main() {
 
         it('should throw when ImplThreadRenderingStats contains more than one frame',
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
-
              createExtension([benchmarkEvents.instant(
                                  'BenchmarkInstrumentation::ImplThreadRenderingStats', 1100,
                                  {'data': {'frame_count': 2}})])
@@ -331,7 +355,6 @@ export function main() {
                    async.done();
                  });
            }));
-
       });
 
       it('should report begin timestamps',
@@ -356,7 +379,6 @@ export function main() {
 
       it('should throw an error on buffer overflow',
          inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
-
            createExtension(
                [
                  chromeTimelineEvents.start('FunctionCall', 1234),
@@ -376,9 +398,7 @@ export function main() {
 
         expect(createExtension().supports({'browserName': 'Chrome'})).toBe(true);
       });
-
     });
-
   });
 }
 
@@ -392,7 +412,7 @@ class MockDriverAdapter extends WebDriverAdapter {
     return Promise.resolve(null);
   }
 
-  logs(type: string) {
+  logs(type: string): Promise<any[]> {
     this._log.push(['logs', type]);
     if (type === 'performance') {
       return Promise.resolve(this._events.map(
@@ -401,7 +421,7 @@ class MockDriverAdapter extends WebDriverAdapter {
                 {'message': {'method': this._messageMethod, 'params': event}}, null, 2)
           })));
     } else {
-      return null;
+      return null!;
     }
   }
 }

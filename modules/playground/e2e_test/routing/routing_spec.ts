@@ -1,13 +1,14 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {verifyNoBrowserErrors} from 'e2e_util/e2e_util';
-import {$, ExpectedConditions, browser, by, element} from 'protractor';
+import {$, browser, by, element, ExpectedConditions} from 'protractor';
+
+import {verifyNoBrowserErrors} from '../../../../dev-infra/benchmark/driver-utilities';
 
 function waitForElement(selector: string) {
   // Waits for the element with id 'abc' to be present on the dom.
@@ -15,11 +16,10 @@ function waitForElement(selector: string) {
 }
 
 describe('routing inbox-app', () => {
-
   afterEach(verifyNoBrowserErrors);
 
   describe('index view', () => {
-    const URL = 'all/playground/src/routing/';
+    const URL = '/';
 
     it('should list out the current collection of items', () => {
       browser.get(URL);

@@ -1,23 +1,19 @@
 // Imports
 import * as cp from 'child_process';
 import * as fs from 'fs';
-import * as http from 'http';
 import * as path from 'path';
 import * as shell from 'shelljs';
-import {getEnvVar} from '../common/utils';
-
-// Constans
-const SERVER_USER = 'www-data';
-const TEST_AIO_BUILDS_DIR = getEnvVar('TEST_AIO_BUILDS_DIR');
-const TEST_AIO_NGINX_HOSTNAME = getEnvVar('TEST_AIO_NGINX_HOSTNAME');
-const TEST_AIO_NGINX_PORT_HTTP = +getEnvVar('TEST_AIO_NGINX_PORT_HTTP');
-const TEST_AIO_NGINX_PORT_HTTPS = +getEnvVar('TEST_AIO_NGINX_PORT_HTTPS');
-const TEST_AIO_UPLOAD_HOSTNAME = getEnvVar('TEST_AIO_UPLOAD_HOSTNAME');
-const TEST_AIO_UPLOAD_MAX_SIZE = +getEnvVar('TEST_AIO_UPLOAD_MAX_SIZE');
-const TEST_AIO_UPLOAD_PORT = +getEnvVar('TEST_AIO_UPLOAD_PORT');
+import {AIO_DOWNLOADS_DIR, HIDDEN_DIR_PREFIX} from '../common/constants';
+import {
+  AIO_BUILDS_DIR,
+  AIO_NGINX_PORT_HTTP,
+  AIO_NGINX_PORT_HTTPS,
+  AIO_WWW_USER,
+} from '../common/env-variables';
+import {computeShortSha, Logger} from '../common/utils';
 
 // Interfaces - Types
-export interface CmdResult { success: boolean; err: Error; stdout: string; stderr: string; }
+export interface CmdResult { success: boolean; err: Error | null; stdout: string; stderr: string; }
 export interface FileSpecs { content?: string; size?: number; }
 
 export type CleanUpFn = () => void;
@@ -26,129 +22,116 @@ export type VerifyCmdResultFn = (result: CmdResult) => void;
 
 // Classes
 class Helper {
-  // Properties - Public
-  public get buildsDir() { return TEST_AIO_BUILDS_DIR; }
-  public get nginxHostname() { return TEST_AIO_NGINX_HOSTNAME; }
-  public get nginxPortHttp() { return TEST_AIO_NGINX_PORT_HTTP; }
-  public get nginxPortHttps() { return TEST_AIO_NGINX_PORT_HTTPS; }
-  public get serverUser() { return SERVER_USER; }
-  public get uploadHostname() { return TEST_AIO_UPLOAD_HOSTNAME; }
-  public get uploadPort() { return TEST_AIO_UPLOAD_PORT; }
-  public get uploadMaxSize() { return TEST_AIO_UPLOAD_MAX_SIZE; }
 
   // Properties - Protected
   protected cleanUpFns: CleanUpFn[] = [];
   protected portPerScheme: {[scheme: string]: number} = {
-    http: this.nginxPortHttp,
-    https: this.nginxPortHttps,
+    http: AIO_NGINX_PORT_HTTP,
+    https: AIO_NGINX_PORT_HTTPS,
   };
+
+  private logger = new Logger('TestHelper');
 
   // Constructor
   constructor() {
-    shell.mkdir('-p', this.buildsDir);
-    shell.exec(`chown -R ${this.serverUser} ${this.buildsDir}`);
+    shell.mkdir('-p', AIO_BUILDS_DIR);
+    shell.exec(`chown -R ${AIO_WWW_USER} ${AIO_BUILDS_DIR}`);
+    shell.mkdir('-p', AIO_DOWNLOADS_DIR);
+    shell.exec(`chown -R ${AIO_WWW_USER} ${AIO_DOWNLOADS_DIR}`);
   }
 
   // Methods - Public
-  public cleanUp() {
+  public cleanUp(): void {
     while (this.cleanUpFns.length) {
       // Clean-up fns remove themselves from the list.
       this.cleanUpFns[0]();
     }
 
-    if (fs.readdirSync(this.buildsDir).length) {
-      throw new Error(`Directory '${this.buildsDir}' is not empty after clean-up.`);
+    const leftoverDownloads = fs.readdirSync(AIO_DOWNLOADS_DIR);
+    const leftoverBuilds = fs.readdirSync(AIO_BUILDS_DIR);
+
+    if (leftoverDownloads.length) {
+      this.logger.log(`Downloads directory '${AIO_DOWNLOADS_DIR}' is not empty after clean-up.`, leftoverDownloads);
+      shell.rm('-rf', `${AIO_DOWNLOADS_DIR}/*`);
+    }
+
+    if (leftoverBuilds.length) {
+      this.logger.log(`Builds directory '${AIO_BUILDS_DIR}' is not empty after clean-up.`, leftoverBuilds);
+      shell.rm('-rf', `${AIO_BUILDS_DIR}/*`);
+    }
+
+    if (leftoverBuilds.length || leftoverDownloads.length) {
+      throw new Error(`Unexpected test files not cleaned up.`);
     }
   }
 
-  public createDummyArchive(pr: string, sha: string, archivePath: string): CleanUpFn {
-    const inputDir = path.join(this.buildsDir, 'uploaded', pr, sha);
-    const cmd1 = `tar --create --gzip --directory "${inputDir}" --file "${archivePath}" .`;
-    const cmd2 = `chown ${this.serverUser} ${archivePath}`;
-
-    const cleanUpTemp = this.createDummyBuild(`uploaded/${pr}`, sha, true);
-    shell.exec(cmd1);
-    shell.exec(cmd2);
-    cleanUpTemp();
-
-    return this.createCleanUpFn(() => shell.rm('-rf', archivePath));
-  }
-
-  public createDummyBuild(pr: string, sha: string, force = false): CleanUpFn {
-    const prDir = path.join(this.buildsDir, pr);
-    const shaDir = path.join(prDir, sha);
+  public createDummyBuild(pr: number, sha: string, isPublic = true, force = false, legacy = false): CleanUpFn {
+    const prDir = this.getPrDir(pr, isPublic);
+    const shaDir = this.getShaDir(prDir, sha, legacy);
     const idxPath = path.join(shaDir, 'index.html');
     const barPath = path.join(shaDir, 'foo', 'bar.js');
 
     this.writeFile(idxPath, {content: `PR: ${pr} | SHA: ${sha} | File: /index.html`}, force);
     this.writeFile(barPath, {content: `PR: ${pr} | SHA: ${sha} | File: /foo/bar.js`}, force);
-    shell.exec(`chown -R ${this.serverUser} ${prDir}`);
+    shell.exec(`chown -R ${AIO_WWW_USER} ${prDir}`);
 
     return this.createCleanUpFn(() => shell.rm('-rf', prDir));
   }
 
-  public deletePrDir(pr: string) {
-    const prDir = path.join(this.buildsDir, pr);
-
-    if (fs.existsSync(prDir)) {
-      // Undocumented signature (see https://github.com/shelljs/shelljs/pull/663).
-      (shell as any).chmod('-R', 'a+w', prDir);
-      shell.rm('-rf', prDir);
-    }
+  public getPrDir(pr: number, isPublic: boolean): string {
+    const prDirName = isPublic ? '' + pr : HIDDEN_DIR_PREFIX + pr;
+    return path.join(AIO_BUILDS_DIR, prDirName);
   }
 
-  public readBuildFile(pr: string, sha: string, relFilePath: string): string {
-    const absFilePath = path.join(this.buildsDir, pr, sha, relFilePath);
+  public getShaDir(prDir: string, sha: string, legacy = false): string {
+    return path.join(prDir, legacy ? sha : computeShortSha(sha));
+  }
+
+  public readBuildFile(pr: number, sha: string, relFilePath: string, isPublic = true, legacy = false): string {
+    const shaDir = this.getShaDir(this.getPrDir(pr, isPublic), sha, legacy);
+    const absFilePath = path.join(shaDir, relFilePath);
     return fs.readFileSync(absFilePath, 'utf8');
   }
 
-  public runCmd(cmd: string, opts: cp.ExecFileOptions = {}): Promise<CmdResult> {
+  public runCmd(cmd: string, opts: cp.ExecOptions = {}): Promise<CmdResult> {
     return new Promise(resolve => {
       const proc = cp.exec(cmd, opts, (err, stdout, stderr) => resolve({success: !err, err, stdout, stderr}));
       this.createCleanUpFn(() => proc.kill());
     });
   }
 
-  public runForAllSupportedSchemes(suiteFactory: TestSuiteFactory) {
-    Object.keys(this.portPerScheme).forEach(scheme => suiteFactory(scheme, this.portPerScheme[scheme]));
+  public runForAllSupportedSchemes(suiteFactory: TestSuiteFactory): void {
+    Object.entries(this.portPerScheme).forEach(([scheme, port]) => suiteFactory(scheme, port));
   }
 
-  public verifyResponse(status: number | [number, string], regex = /^/): VerifyCmdResultFn {
-    let statusCode: number;
-    let statusText: string;
-
-    if (Array.isArray(status)) {
-      statusCode = status[0];
-      statusText = status[1];
-    } else {
-      statusCode = status;
-      statusText = http.STATUS_CODES[statusCode];
-    }
-
+  public verifyResponse(status: number, regex: string | RegExp = /^/): VerifyCmdResultFn {
     return (result: CmdResult) => {
       const [headers, body] = result.stdout.
         split(/(?:\r?\n){2,}/).
         map(s => s.trim()).
-        slice(-2);
+        slice(-2);   // In case of redirect, discard the previous headers.
+                     // Only keep the last to sections (final headers and body).
 
       if (!result.success) {
-        console.log('Stdout:', result.stdout);
-        console.log('Stderr:', result.stderr);
-        console.log('Error:', result.err);
+        this.logger.log('Stdout:', result.stdout);
+        this.logger.error('Stderr:', result.stderr);
+        this.logger.error('Error:', result.err);
       }
 
       expect(result.success).toBe(true);
-      expect(headers).toContain(`${statusCode} ${statusText}`);
+      expect(headers).toMatch(new RegExp(`HTTP/(?:1\\.1|2) ${status} `));
       expect(body).toMatch(regex);
     };
   }
 
-  public writeBuildFile(pr: string, sha: string, relFilePath: string, content: string): CleanUpFn {
-    const absFilePath = path.join(this.buildsDir, pr, sha, relFilePath);
-    return this.writeFile(absFilePath, {content}, true);
+  public writeBuildFile(pr: number, sha: string, relFilePath: string, content: string, isPublic = true,
+                        legacy = false): void {
+    const shaDir = this.getShaDir(this.getPrDir(pr, isPublic), sha, legacy);
+    const absFilePath = path.join(shaDir, relFilePath);
+    this.writeFile(absFilePath, {content}, true);
   }
 
-  public writeFile(filePath: string, {content, size}: FileSpecs, force = false): CleanUpFn {
+  public writeFile(filePath: string, {content, size}: FileSpecs, force = false): void {
     if (!force && fs.existsSync(filePath)) {
       throw new Error(`Refusing to overwrite existing file '${filePath}'.`);
     }
@@ -166,13 +149,11 @@ class Helper {
       // Create a file with the specified content.
       fs.writeFileSync(filePath, content || '');
     }
-    shell.exec(`chown ${this.serverUser} ${filePath}`);
-
-    return this.createCleanUpFn(() => shell.rm('-rf', cleanUpTarget));
+    shell.exec(`chown ${AIO_WWW_USER} ${filePath}`);
   }
 
   // Methods - Protected
-  protected createCleanUpFn(fn: Function): CleanUpFn {
+  protected createCleanUpFn(fn: () => void): CleanUpFn {
     const cleanUpFn = () => {
       const idx = this.cleanUpFns.indexOf(cleanUpFn);
       if (idx !== -1) {
@@ -186,6 +167,71 @@ class Helper {
     return cleanUpFn;
   }
 }
+
+interface DefaultCurlOptions {
+  defaultMethod?: CurlOptions['method'];
+  defaultOptions?: CurlOptions['options'];
+  defaultHeaders?: CurlOptions['headers'];
+  defaultData?: CurlOptions['data'];
+  defaultExtraPath?: CurlOptions['extraPath'];
+}
+
+interface CurlOptions {
+  method?: string;
+  options?: string;
+  headers?: string[];
+  data?: any;
+  url?: string;
+  extraPath?: string;
+}
+
+export function makeCurl(baseUrl: string, {
+  defaultMethod = 'POST',
+  defaultOptions = '',
+  defaultHeaders = ['Content-Type: application/json'],
+  defaultData = {},
+  defaultExtraPath = '',
+}: DefaultCurlOptions = {}) {
+  return function curl({
+    method = defaultMethod,
+    options = defaultOptions,
+    headers = defaultHeaders,
+    data = defaultData,
+    url = baseUrl,
+    extraPath = defaultExtraPath,
+  }: CurlOptions) {
+    const dataString = data ? JSON.stringify(data) : '';
+    const cmd = `curl -iLX ${method} ` +
+                `${options} ` +
+                headers.map(header => `--header "${header}" `).join('') +
+                `--data '${dataString}' ` +
+                `${url}${extraPath}`;
+    return helper.runCmd(cmd);
+  };
+}
+
+export interface PayloadData {
+  data: {
+    payload: {
+      build_num: number,
+      build_parameters: {
+        CIRCLE_JOB: string;
+      };
+    };
+  };
+}
+
+export function payload(buildNum: number): PayloadData {
+  return {
+    data: {
+      payload: {
+        build_num: buildNum,
+        build_parameters: { CIRCLE_JOB: 'aio_preview' },
+      },
+    },
+  };
+}
+
 
 // Exports
 export const helper = new Helper();

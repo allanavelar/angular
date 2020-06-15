@@ -1,14 +1,14 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 import * as common from '@angular/common';
-import {CUSTOM_ELEMENTS_SCHEMA, Component, Directive, EventEmitter, Inject, InjectionToken, NgModule, Output} from '@angular/core';
-import {Observable} from 'rxjs/Observable';
+import {Component, CUSTOM_ELEMENTS_SCHEMA, Directive, EventEmitter, forwardRef, Inject, InjectionToken, NgModule, Output} from '@angular/core';
+import {Observable} from 'rxjs';
 
 import {wrapInArray} from './funcs';
 
@@ -18,7 +18,7 @@ export const SOME_INJECTON_TOKEN = new InjectionToken('injectionToken');
   selector: 'comp-providers',
   template: '',
   providers: [
-    {provide: 'strToken', useValue: 'strValue'},
+    {provide: 'strToken', useValue: forwardRef(() => 'strValue')},
     {provide: SOME_INJECTON_TOKEN, useValue: 10},
     {provide: 'reference', useValue: common.NgIf},
     {provide: 'complexToken', useValue: {a: 1, b: ['test', SOME_INJECTON_TOKEN]}},
@@ -62,7 +62,9 @@ export class CompUsingCustomElements {
 })
 export class CompConsumingEvents {
   handleDomEventVoid(e: any): void {}
-  handleDomEventPreventDefault(e: any): boolean { return false; }
+  handleDomEventPreventDefault(e: any): boolean {
+    return false;
+  }
   handleDirEvent(e: any): void {}
 }
 
@@ -70,8 +72,7 @@ export class CompConsumingEvents {
   selector: '[dirEvent]',
 })
 export class DirPublishingEvents {
-  @Output('dirEvent')
-  dirEvent: Observable<string> = new EventEmitter();
+  @Output('dirEvent') dirEvent: Observable<string> = new EventEmitter();
 }
 
 @NgModule({schemas: [CUSTOM_ELEMENTS_SCHEMA], declarations: wrapInArray(CompUsingCustomElements)})

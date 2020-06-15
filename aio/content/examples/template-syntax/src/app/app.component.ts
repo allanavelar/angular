@@ -5,13 +5,13 @@ import { AfterViewInit, Component, ElementRef, OnInit, QueryList, ViewChildren }
 
 import { Hero } from './hero';
 
-export enum Color {Red, Green, Blue};
+export enum Color {Red, Green, Blue}
 
 /**
  * Giant grab bag of stuff to drive the chapter
  */
 @Component({
-  selector: 'my-app',
+  selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: [ './app.component.css' ]
 })
@@ -29,7 +29,7 @@ export class AppComponent implements AfterViewInit, OnInit {
     trackChanges(this.heroesWithTrackBy, () => this.heroesWithTrackByCount++);
   }
 
-  @ViewChildren('noTrackBy')   heroesNoTrackBy:   QueryList<ElementRef>;
+  @ViewChildren('noTrackBy')   heroesNoTrackBy: QueryList<ElementRef>;
   @ViewChildren('withTrackBy') heroesWithTrackBy: QueryList<ElementRef>;
 
   actionName = 'Go for it';
@@ -66,7 +66,11 @@ export class AppComponent implements AfterViewInit, OnInit {
 
   currentHero: Hero;
 
-  deleteHero(hero: Hero) {
+  updateCurrentHeroName(event: Event) {
+    this.currentHero.name = (event.target as any).value;
+  }
+
+  deleteHero(hero?: Hero) {
     this.alert(`Delete ${hero ? hero.name : 'the hero'}.`);
   }
 
@@ -93,30 +97,30 @@ export class AppComponent implements AfterViewInit, OnInit {
 
   // heroImageUrl = 'http://www.wpclipart.com/cartoon/people/hero/hero_silhoutte_T.png';
   // Public Domain terms of use: http://www.wpclipart.com/terms.html
-  heroImageUrl = 'images/hero.png';
+  heroImageUrl = 'assets/images/hero.png';
   // villainImageUrl = 'http://www.clker.com/cliparts/u/s/y/L/x/9/villain-man-hi.png'
   // Public Domain terms of use http://www.clker.com/disclaimer.html
-  villainImageUrl = 'images/villain.png';
+  villainImageUrl = 'assets/images/villain.png';
 
-  iconUrl = 'images/ng-logo.png';
+  iconUrl = 'assets/images/ng-logo.png';
   isActive = false;
   isSpecial = true;
   isUnchanged = true;
 
   get nullHero(): Hero { return null; }
 
-  onClickMe(event: KeyboardEvent) {
-    let evtMsg = event ? ' Event target class is ' + (<HTMLElement>event.target).className  : '';
+  onClickMe(event?: MouseEvent) {
+    const evtMsg = event ? ' Event target class is ' + (event.target as HTMLElement).className  : '';
     this.alert('Click me.' + evtMsg);
   }
 
-  onSave(event: KeyboardEvent) {
-    let evtMsg = event ? ' Event target is ' + (<HTMLElement>event.target).innerText : '';
+  onSave(event?: MouseEvent) {
+    const evtMsg = event ? ' Event target is ' + (event.target as HTMLElement).textContent : '';
     this.alert('Saved.' + evtMsg);
     if (event) { event.stopPropagation(); }
   }
 
-  onSubmit() {/* referenced but not used */}
+  onSubmit(data: any) {/* referenced but not used */}
 
   product = {
     name: 'frimfram',
@@ -127,6 +131,7 @@ export class AppComponent implements AfterViewInit, OnInit {
   resetHeroes() {
     this.heroes = Hero.heroes.map(hero => hero.clone());
     this.currentHero = this.heroes[0];
+    this.hero = this.currentHero;
     this.heroesWithTrackByCountReset = 0;
   }
 
@@ -163,7 +168,7 @@ export class AppComponent implements AfterViewInit, OnInit {
   // #enddocregion trackByHeroes
 
   // #docregion trackById
-  trackById(index: number, item: any): number { return item['id']; }
+  trackById(index: number, item: any): number { return item.id; }
   // #enddocregion trackById
 }
 
@@ -172,8 +177,8 @@ function trackChanges(views: QueryList<ElementRef>, changed: () => void) {
   let oldRefs = views.toArray();
   views.changes.subscribe((changes: QueryList<ElementRef>) => {
       const changedRefs = changes.toArray();
-      // Is every changed ElemRef the same as old and in the same position
-      const isSame = oldRefs.every((v, i) => v === changedRefs[i]);
+      // Check if every changed Element is the same as old and in the same position
+      const isSame = oldRefs.every((v, i) => v.nativeElement === changedRefs[i].nativeElement);
       if (!isSame) {
         oldRefs = changedRefs;
         // wait a tick because called after views are constructed

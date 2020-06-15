@@ -2,17 +2,21 @@
   "name": "@angular/compiler",
   "version": "0.0.0-PLACEHOLDER",
   "description": "Angular - the compiler library",
-  "main": "./bundles/compiler.umd.js",
-  "module": "./@angular/compiler.es5.js",
-  "es2015": "./@angular/compiler.js",
-  "typings": "./compiler.d.ts",
   "author": "angular",
   "license": "MIT",
-  "peerDependencies": {
-    "@angular/core": "0.0.0-PLACEHOLDER"
+  "dependencies": {
+    "tslib": "^2.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/angular/angular.git"
+    "url": "https://github.com/angular/angular.git",
+    "directory": "packages/compiler"
+  },
+  "ng-update": {
+    "packageGroup": "NG_UPDATE_PACKAGE_GROUP"
+  },
+  "sideEffects": true,
+  "publishConfig":{
+    "registry":"https://wombat-dressing-room.appspot.com"
   }
 }

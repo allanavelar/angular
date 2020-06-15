@@ -1,20 +1,27 @@
 // Imports
-import {GithubPullRequests} from '../../lib/common/github-pull-requests';
+import {GithubApi} from '../../lib/common/github-api';
+import {GithubPullRequests, PullRequest} from '../../lib/common/github-pull-requests';
 
 // Tests
 describe('GithubPullRequests', () => {
+  let githubApi: jasmine.SpyObj<GithubApi>;
+
+  beforeEach(() => {
+    githubApi = jasmine.createSpyObj('githubApi', ['post', 'get', 'getPaginated']);
+  });
+
 
   describe('constructor()', () => {
 
-    it('should throw if \'githubToken\' is missing or empty', () => {
-      expect(() => new GithubPullRequests('', 'foo/bar')).
-        toThrowError('Missing or empty required parameter \'githubToken\'!');
+    it('should throw if \'githubOrg\' is missing or empty', () => {
+      expect(() => new GithubPullRequests(githubApi, '', 'bar')).
+        toThrowError('Missing or empty required parameter \'githubOrg\'!');
     });
 
 
-    it('should throw if \'repoSlug\' is missing or empty', () => {
-      expect(() => new GithubPullRequests('12345', '')).
-        toThrowError('Missing or empty required parameter \'repoSlug\'!');
+    it('should throw if \'githubRepo\' is missing or empty', () => {
+      expect(() => new GithubPullRequests(githubApi, 'foo', '')).
+        toThrowError('Missing or empty required parameter \'githubRepo\'!');
     });
 
   });
@@ -22,17 +29,9 @@ describe('GithubPullRequests', () => {
 
   describe('addComment()', () => {
     let prs: GithubPullRequests;
-    let deferred: {resolve: Function, reject: Function};
 
     beforeEach(() => {
-      prs = new GithubPullRequests('12345', 'foo/bar');
-
-      spyOn(prs, 'post').and.callFake(() => new Promise((resolve, reject) => deferred = {resolve, reject}));
-    });
-
-
-    it('should return a promise', () => {
-      expect(prs.addComment(42, 'body')).toEqual(jasmine.any(Promise));
+      prs = new GithubPullRequests(githubApi, 'foo', 'bar');
     });
 
 
@@ -47,30 +46,46 @@ describe('GithubPullRequests', () => {
     });
 
 
-    it('should call \'post()\' with the correct pathname, params and data', () => {
+    it('should make a POST request to Github with the correct pathname, params and data', () => {
+      githubApi.post.and.resolveTo();
       prs.addComment(42, 'body');
-
-      expect(prs.post).toHaveBeenCalledWith('/repos/foo/bar/issues/42/comments', null, {body: 'body'});
+      expect(githubApi.post).toHaveBeenCalledWith('/repos/foo/bar/issues/42/comments', null, {body: 'body'});
     });
 
 
-    it('should reject if the request fails', done => {
-      prs.addComment(42, 'body').catch(err => {
-        expect(err).toBe('Test');
-        done();
-      });
-
-      deferred.reject('Test');
+    it('should reject if the request fails', async () => {
+      githubApi.post.and.rejectWith('Test');
+      await expectAsync(prs.addComment(42, 'body')).toBeRejectedWith('Test');
     });
 
 
-    it('should resolve with the returned response', done => {
-      prs.addComment(42, 'body').then(data => {
-        expect(data).toEqual('Test');
-        done();
-      });
+    it('should resolve with the data from the Github POST', async () => {
+      githubApi.post.and.resolveTo('Test');
+      await expectAsync(prs.addComment(42, 'body')).toBeResolvedTo('Test');
+    });
 
-      deferred.resolve('Test');
+  });
+
+
+  describe('fetch()', () => {
+    let prs: GithubPullRequests;
+
+    beforeEach(() => {
+      prs = new GithubPullRequests(githubApi, 'foo', 'bar');
+    });
+
+
+    it('should make a GET request to GitHub with the correct pathname', () => {
+      prs.fetch(42);
+      expect(githubApi.get).toHaveBeenCalledWith('/repos/foo/bar/issues/42');
+    });
+
+
+    it('should resolve with the data returned from GitHub', async () => {
+      const expected: any = {number: 42};
+      githubApi.get.and.resolveTo(expected);
+
+      await expectAsync(prs.fetch(42)).toBeResolvedTo(expected);
     });
 
   });
@@ -78,13 +93,8 @@ describe('GithubPullRequests', () => {
 
   describe('fetchAll()', () => {
     let prs: GithubPullRequests;
-    let prsGetPaginatedSpy: jasmine.Spy;
 
-    beforeEach(() => {
-      prs = new GithubPullRequests('12345', 'foo/bar');
-      prsGetPaginatedSpy = spyOn(prs as any, 'getPaginated');
-      spyOn(console, 'log');
-    });
+    beforeEach(() => prs = new GithubPullRequests(githubApi, 'foo', 'bar'));
 
 
     it('should call \'getPaginated()\' with the correct pathname and params', () => {
@@ -94,22 +104,51 @@ describe('GithubPullRequests', () => {
       prs.fetchAll('closed');
       prs.fetchAll('open');
 
-      expect(prsGetPaginatedSpy).toHaveBeenCalledTimes(3);
-      expect(prsGetPaginatedSpy.calls.argsFor(0)).toEqual([expectedPathname, {state: 'all'}]);
-      expect(prsGetPaginatedSpy.calls.argsFor(1)).toEqual([expectedPathname, {state: 'closed'}]);
-      expect(prsGetPaginatedSpy.calls.argsFor(2)).toEqual([expectedPathname, {state: 'open'}]);
+      expect(githubApi.getPaginated).toHaveBeenCalledTimes(3);
+      expect(githubApi.getPaginated.calls.argsFor(0)).toEqual([expectedPathname, {state: 'all'}]);
+      expect(githubApi.getPaginated.calls.argsFor(1)).toEqual([expectedPathname, {state: 'closed'}]);
+      expect(githubApi.getPaginated.calls.argsFor(2)).toEqual([expectedPathname, {state: 'open'}]);
     });
 
 
     it('should default to \'all\' if no state is specified', () => {
       prs.fetchAll();
-      expect(prsGetPaginatedSpy).toHaveBeenCalledWith('/repos/foo/bar/pulls', {state: 'all'});
+      expect(githubApi.getPaginated).toHaveBeenCalledWith('/repos/foo/bar/pulls', {state: 'all'});
     });
 
 
-    it('should forward the value returned by \'getPaginated()\'', () => {
-      prsGetPaginatedSpy.and.returnValue('Test');
-      expect(prs.fetchAll()).toBe('Test');
+    it('should forward the value returned by \'getPaginated()\'', async () => {
+      const mockPrs: PullRequest[] = [
+        {number: 1, user: {login: 'foo'}, labels: []},
+        {number: 2, user: {login: 'bar'}, labels: []},
+      ];
+
+      githubApi.getPaginated.and.resolveTo(mockPrs);
+      expect(await prs.fetchAll()).toBe(mockPrs);
+    });
+
+  });
+
+
+  describe('fetchFiles()', () => {
+    let prs: GithubPullRequests;
+
+    beforeEach(() => {
+      prs = new GithubPullRequests(githubApi, 'foo', 'bar');
+    });
+
+
+    it('should make a paginated GET request to GitHub with the correct pathname', () => {
+      prs.fetchFiles(42);
+      expect(githubApi.getPaginated).toHaveBeenCalledWith('/repos/foo/bar/pulls/42/files');
+    });
+
+
+    it('should resolve with the data returned from GitHub', async () => {
+      const expected: any = [{sha: 'ABCDE', filename: 'a/b/c'}, {sha: '12345', filename: 'x/y/z'}];
+      githubApi.getPaginated.and.resolveTo(expected);
+
+      await expectAsync(prs.fetchFiles(42)).toBeResolvedTo(expected);
     });
 
   });

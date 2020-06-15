@@ -1,20 +1,22 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Injector, THROW_IF_NOT_FOUND} from './injector';
+import {Injector} from './injector';
+import {THROW_IF_NOT_FOUND} from './injector_compatibility';
+import {Provider} from './interface/provider';
 import {Self, SkipSelf} from './metadata';
-import {Provider} from './provider';
 import {cyclicDependencyError, instantiationError, noProviderError, outOfBoundsError} from './reflective_errors';
 import {ReflectiveKey} from './reflective_key';
 import {ReflectiveDependency, ResolvedReflectiveFactory, ResolvedReflectiveProvider, resolveReflectiveProviders} from './reflective_provider';
 
+
 // Threshold for the dynamic version
-const UNDEFINED = new Object();
+const UNDEFINED = {};
 
 /**
  * A ReflectiveDependency injection container used for instantiating objects and resolving
@@ -26,7 +28,8 @@ const UNDEFINED = new Object();
  * In typical use, application code asks for the dependencies in the constructor and they are
  * resolved by the `Injector`.
  *
- * ### Example ([live demo](http://plnkr.co/edit/jzjec0?p=preview))
+ * @usageNotes
+ * ### Example
  *
  * The following example creates an `Injector` configured to create `Engine` and `Car`.
  *
@@ -49,16 +52,18 @@ const UNDEFINED = new Object();
  * Notice, we don't use the `new` operator because we explicitly want to have the `Injector`
  * resolve all of the object's dependencies automatically.
  *
- * @stable
+ * @deprecated from v5 - slow and brings in a lot of code, Use `Injector.create` instead.
+ * @publicApi
  */
 export abstract class ReflectiveInjector implements Injector {
   /**
    * Turns an array of provider definitions into an array of resolved providers.
    *
    * A resolution is a process of flattening multiple nested arrays and converting individual
-   * providers into an array of {@link ResolvedReflectiveProvider}s.
+   * providers into an array of `ResolvedReflectiveProvider`s.
    *
-   * ### Example ([live demo](http://plnkr.co/edit/AiXTHi?p=preview))
+   * @usageNotes
+   * ### Example
    *
    * ```typescript
    * @Injectable()
@@ -83,7 +88,6 @@ export abstract class ReflectiveInjector implements Injector {
    * });
    * ```
    *
-   * See {@link ReflectiveInjector#fromResolvedProviders} for more info.
    */
   static resolve(providers: Provider[]): ResolvedReflectiveProvider[] {
     return resolveReflectiveProviders(providers);
@@ -92,10 +96,11 @@ export abstract class ReflectiveInjector implements Injector {
   /**
    * Resolves an array of providers and creates an injector from those providers.
    *
-   * The passed-in providers can be an array of `Type`, {@link Provider},
+   * The passed-in providers can be an array of `Type`, `Provider`,
    * or a recursive array of more providers.
    *
-   * ### Example ([live demo](http://plnkr.co/edit/ePOccA?p=preview))
+   * @usageNotes
+   * ### Example
    *
    * ```typescript
    * @Injectable()
@@ -110,10 +115,6 @@ export abstract class ReflectiveInjector implements Injector {
    * var injector = ReflectiveInjector.resolveAndCreate([Car, Engine]);
    * expect(injector.get(Car) instanceof Car).toBe(true);
    * ```
-   *
-   * This function is slower than the corresponding `fromResolvedProviders`
-   * because it needs to resolve the passed-in providers first.
-   * See {@link Injector#resolve} and {@link Injector#fromResolvedProviders}.
    */
   static resolveAndCreate(providers: Provider[], parent?: Injector): ReflectiveInjector {
     const ResolvedReflectiveProviders = ReflectiveInjector.resolve(providers);
@@ -125,7 +126,8 @@ export abstract class ReflectiveInjector implements Injector {
    *
    * This API is the recommended way to construct injectors in performance-sensitive parts.
    *
-   * ### Example ([live demo](http://plnkr.co/edit/KrSMci?p=preview))
+   * @usageNotes
+   * ### Example
    *
    * ```typescript
    * @Injectable()
@@ -141,7 +143,6 @@ export abstract class ReflectiveInjector implements Injector {
    * var injector = ReflectiveInjector.fromResolvedProviders(providers);
    * expect(injector.get(Car) instanceof Car).toBe(true);
    * ```
-   * @experimental
    */
   static fromResolvedProviders(providers: ResolvedReflectiveProvider[], parent?: Injector):
       ReflectiveInjector {
@@ -154,14 +155,6 @@ export abstract class ReflectiveInjector implements Injector {
    *
    * <!-- TODO: Add a link to the section of the user guide talking about hierarchical injection.
    * -->
-   *
-   * ### Example ([live demo](http://plnkr.co/edit/eosMGo?p=preview))
-   *
-   * ```typescript
-   * var parent = ReflectiveInjector.resolveAndCreate([]);
-   * var child = parent.resolveAndCreateChild([]);
-   * expect(child.parent).toBe(parent);
-   * ```
    */
   abstract get parent(): Injector|null;
 
@@ -171,10 +164,11 @@ export abstract class ReflectiveInjector implements Injector {
    * <!-- TODO: Add a link to the section of the user guide talking about hierarchical injection.
    * -->
    *
-   * The passed-in providers can be an array of `Type`, {@link Provider},
+   * The passed-in providers can be an array of `Type`, `Provider`,
    * or a recursive array of more providers.
    *
-   * ### Example ([live demo](http://plnkr.co/edit/opB3T4?p=preview))
+   * @usageNotes
+   * ### Example
    *
    * ```typescript
    * class ParentProvider {}
@@ -187,10 +181,6 @@ export abstract class ReflectiveInjector implements Injector {
    * expect(child.get(ChildProvider) instanceof ChildProvider).toBe(true);
    * expect(child.get(ParentProvider)).toBe(parent.get(ParentProvider));
    * ```
-   *
-   * This function is slower than the corresponding `createChildFromResolved`
-   * because it needs to resolve the passed-in providers first.
-   * See {@link Injector#resolve} and {@link Injector#createChildFromResolved}.
    */
   abstract resolveAndCreateChild(providers: Provider[]): ReflectiveInjector;
 
@@ -202,7 +192,8 @@ export abstract class ReflectiveInjector implements Injector {
    *
    * This API is the recommended way to construct injectors in performance-sensitive parts.
    *
-   * ### Example ([live demo](http://plnkr.co/edit/VhyfjN?p=preview))
+   * @usageNotes
+   * ### Example
    *
    * ```typescript
    * class ParentProvider {}
@@ -226,7 +217,8 @@ export abstract class ReflectiveInjector implements Injector {
    *
    * The created object does not get cached by the injector.
    *
-   * ### Example ([live demo](http://plnkr.co/edit/yvVXoB?p=preview))
+   * @usageNotes
+   * ### Example
    *
    * ```typescript
    * @Injectable()
@@ -252,7 +244,8 @@ export abstract class ReflectiveInjector implements Injector {
    *
    * The created object does not get cached by the injector.
    *
-   * ### Example ([live demo](http://plnkr.co/edit/ptCImQ?p=preview))
+   * @usageNotes
+   * ### Example
    *
    * ```typescript
    * @Injectable()
@@ -277,12 +270,12 @@ export abstract class ReflectiveInjector implements Injector {
 }
 
 export class ReflectiveInjector_ implements ReflectiveInjector {
+  private static INJECTOR_KEY = ReflectiveKey.get(Injector);
   /** @internal */
   _constructionCounter: number = 0;
   /** @internal */
   public _providers: ResolvedReflectiveProvider[];
-  /** @internal */
-  public _parent: Injector|null;
+  public readonly parent: Injector|null;
 
   keyIds: number[];
   objs: any[];
@@ -291,12 +284,12 @@ export class ReflectiveInjector_ implements ReflectiveInjector {
    */
   constructor(_providers: ResolvedReflectiveProvider[], _parent?: Injector) {
     this._providers = _providers;
-    this._parent = _parent || null;
+    this.parent = _parent || null;
 
     const len = _providers.length;
 
-    this.keyIds = new Array(len);
-    this.objs = new Array(len);
+    this.keyIds = [];
+    this.objs = [];
 
     for (let i = 0; i < len; i++) {
       this.keyIds[i] = _providers[i].key.id;
@@ -308,8 +301,6 @@ export class ReflectiveInjector_ implements ReflectiveInjector {
     return this._getByKey(ReflectiveKey.get(token), null, notFoundValue);
   }
 
-  get parent(): Injector|null { return this._parent; }
-
   resolveAndCreateChild(providers: Provider[]): ReflectiveInjector {
     const ResolvedReflectiveProviders = ReflectiveInjector.resolve(providers);
     return this.createChildFromResolved(ResolvedReflectiveProviders);
@@ -317,7 +308,7 @@ export class ReflectiveInjector_ implements ReflectiveInjector {
 
   createChildFromResolved(providers: ResolvedReflectiveProvider[]): ReflectiveInjector {
     const inj = new ReflectiveInjector_(providers);
-    inj._parent = this;
+    (inj as {parent: Injector | null}).parent = this;
     return inj;
   }
 
@@ -344,11 +335,13 @@ export class ReflectiveInjector_ implements ReflectiveInjector {
     return this._instantiateProvider(provider);
   }
 
-  private _getMaxNumberOfObjects(): number { return this.objs.length; }
+  private _getMaxNumberOfObjects(): number {
+    return this.objs.length;
+  }
 
   private _instantiateProvider(provider: ResolvedReflectiveProvider): any {
     if (provider.multiProvider) {
-      const res = new Array(provider.resolvedFactories.length);
+      const res = [];
       for (let i = 0; i < provider.resolvedFactories.length; ++i) {
         res[i] = this._instantiate(provider, provider.resolvedFactories[i]);
       }
@@ -389,7 +382,7 @@ export class ReflectiveInjector_ implements ReflectiveInjector {
   }
 
   private _getByKey(key: ReflectiveKey, visibility: Self|SkipSelf|null, notFoundValue: any): any {
-    if (key === INJECTOR_KEY) {
+    if (key === ReflectiveInjector_.INJECTOR_KEY) {
       return this;
     }
 
@@ -435,7 +428,7 @@ export class ReflectiveInjector_ implements ReflectiveInjector {
     let inj: Injector|null;
 
     if (visibility instanceof SkipSelf) {
-      inj = this._parent;
+      inj = this.parent;
     } else {
       inj = this;
     }
@@ -444,7 +437,7 @@ export class ReflectiveInjector_ implements ReflectiveInjector {
       const inj_ = <ReflectiveInjector_>inj;
       const obj = inj_._getObjByKeyId(key.id);
       if (obj !== UNDEFINED) return obj;
-      inj = inj_._parent;
+      inj = inj_.parent;
     }
     if (inj !== null) {
       return inj.get(key.token, notFoundValue);
@@ -460,13 +453,13 @@ export class ReflectiveInjector_ implements ReflectiveInjector {
     return `ReflectiveInjector(providers: [${providers}])`;
   }
 
-  toString(): string { return this.displayName; }
+  toString(): string {
+    return this.displayName;
+  }
 }
 
-const INJECTOR_KEY = ReflectiveKey.get(Injector);
-
 function _mapProviders(injector: ReflectiveInjector_, fn: Function): any[] {
-  const res: any[] = new Array(injector._providers.length);
+  const res: any[] = [];
   for (let i = 0; i < injector._providers.length; ++i) {
     res[i] = fn(injector.getProviderAtIndex(i));
   }

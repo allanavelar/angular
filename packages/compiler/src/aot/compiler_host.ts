@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -20,10 +20,14 @@ export interface AotCompilerHost extends StaticSymbolResolverHost, AotSummaryRes
    *
    * See ImportResolver.
    */
-  fileNameToModuleName(importedFilePath: string, containingFilePath: string): string|null;
-
+  fileNameToModuleName(importedFilePath: string, containingFilePath: string): string;
+  /**
+   * Converts a path that refers to a resource into an absolute filePath
+   * that can be later on used for loading the resource via `loadResource.
+   */
+  resourceNameToFileName(resourceName: string, containingFileName: string): string|null;
   /**
    * Loads a resource (e.g. html / css)
    */
-  loadResource(path: string): Promise<string>;
+  loadResource(path: string): Promise<string>|string;
 }

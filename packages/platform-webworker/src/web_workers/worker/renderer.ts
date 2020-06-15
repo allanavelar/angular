@@ -1,12 +1,12 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Injectable, RenderComponentType, Renderer, Renderer2, RendererFactory2, RendererStyleFlags2, RendererType2, RootRenderer, ViewEncapsulation} from '@angular/core';
+import {Injectable, Renderer2, RendererFactory2, RendererStyleFlags2, RendererType2} from '@angular/core';
 
 import {ClientMessageBroker, ClientMessageBrokerFactory, FnArg, UiArguments} from '../shared/client_message_broker';
 import {MessageBus} from '../shared/message_bus';
@@ -15,9 +15,12 @@ import {RenderStore} from '../shared/render_store';
 import {Serializer, SerializerTypes} from '../shared/serializer';
 
 export class NamedEventEmitter {
-  private _listeners: Map<string, Function[]>;
+  // TODO(issue/24571): remove '!'.
+  private _listeners!: Map<string, Function[]>;
 
-  listen(eventName: string, callback: Function) { this._getListeners(eventName).push(callback); }
+  listen(eventName: string, callback: Function) {
+    this._getListeners(eventName).push(callback);
+  }
 
   unlisten(eventName: string, listener: Function) {
     const listeners = this._getListeners(eventName);
@@ -67,7 +70,7 @@ export class WebWorkerRendererFactory2 implements RendererFactory2 {
     source.subscribe({next: (message: any) => this._dispatchEvent(message)});
   }
 
-  createRenderer(element: any, type: RendererType2): Renderer2 {
+  createRenderer(element: any, type: RendererType2|null): Renderer2 {
     const renderer = new WebWorkerRenderer2(this);
 
     const id = this.renderStore.allocateId();
@@ -81,6 +84,9 @@ export class WebWorkerRendererFactory2 implements RendererFactory2 {
     return renderer;
   }
 
+  begin() {}
+  end() {}
+
   callUI(fnName: string, fnArgs: FnArg[]) {
     const args = new UiArguments(fnName, fnArgs);
     this._messageBroker.runOnService(args, null);
@@ -93,9 +99,13 @@ export class WebWorkerRendererFactory2 implements RendererFactory2 {
     return result;
   }
 
-  freeNode(node: any) { this.renderStore.remove(node); }
+  freeNode(node: any) {
+    this.renderStore.remove(node);
+  }
 
-  allocateId(): number { return this.renderStore.allocateId(); }
+  allocateId(): number {
+    return this.renderStore.allocateId();
+  }
 
   private _dispatchEvent(message: {[key: string]: any}): void {
     const element: WebWorkerRenderNode =
@@ -121,7 +131,9 @@ export class WebWorkerRenderer2 implements Renderer2 {
 
   private asFnArg = new FnArg(this, SerializerTypes.RENDER_STORE_OBJECT);
 
-  destroy(): void { this.callUIWithRenderer('destroy'); }
+  destroy(): void {
+    this.callUIWithRenderer('destroy');
+  }
 
   destroyNode(node: any) {
     this.callUIWithRenderer('destroyNode', [new FnArg(node, SerializerTypes.RENDER_STORE_OBJECT)]);
@@ -277,9 +289,9 @@ export class WebWorkerRenderer2 implements Renderer2 {
       listener: (event: any) => boolean): () => void {
     const unlistenId = this._rendererFactory.allocateId();
 
-    const [targetEl, targetName, fullName]: [any, string, string] = typeof target === 'string' ?
-        [null, target, `${target}:${eventName}`] :
-        [target, null, null];
+    const [targetEl, targetName, fullName]: [any, string|null, string|null] =
+        typeof target === 'string' ? [null, target, `${target}:${eventName}`] :
+                                     [target, null, null];
 
     if (fullName) {
       this._rendererFactory.globalEvents.listen(fullName, listener);
@@ -310,4 +322,6 @@ export class WebWorkerRenderer2 implements Renderer2 {
   }
 }
 
-export class WebWorkerRenderNode { events = new NamedEventEmitter(); }
+export class WebWorkerRenderNode {
+  events = new NamedEventEmitter();
+}

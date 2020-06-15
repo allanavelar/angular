@@ -1,19 +1,19 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {verifyNoBrowserErrors} from 'e2e_util/e2e_util';
 import {browser, by, element} from 'protractor';
 
-describe('Template-Driven Forms', function() {
+import {verifyNoBrowserErrors} from '../../../../dev-infra/benchmark/driver-utilities';
 
+describe('Template-Driven Forms', function() {
   afterEach(verifyNoBrowserErrors);
 
-  const URL = 'all/playground/src/template_driven_forms/index.html';
+  const URL = '/';
 
   it('should display errors', function() {
     browser.get(URL);
@@ -25,9 +25,6 @@ describe('Template-Driven Forms', function() {
     input.sendKeys('invalid');
     firstName.click();
 
-    // TODO: getInnerHtml has been deprecated by selenium-webdriver in the
-    // upcoming release of 3.0.0. Protractor has removed this method from
-    // ElementFinder but can still be accessed via WebElement.
-    expect(form.getWebElement().getInnerHtml()).toContain('is invalid credit card number');
+    expect(form.getAttribute('innerHTML')).toContain('is invalid credit card number');
   });
 });

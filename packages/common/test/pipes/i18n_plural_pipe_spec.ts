@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -9,8 +9,9 @@
 import {I18nPluralPipe, NgLocalization} from '@angular/common';
 import {PipeResolver} from '@angular/compiler/src/pipe_resolver';
 import {beforeEach, describe, expect, it} from '@angular/core/testing/src/testing_internal';
+import {JitReflector} from '@angular/platform-browser-dynamic/src/compiler_reflector';
 
-export function main() {
+{
   describe('I18nPluralPipe', () => {
     let localization: NgLocalization;
     let pipe: I18nPluralPipe;
@@ -27,8 +28,9 @@ export function main() {
       pipe = new I18nPluralPipe(localization);
     });
 
-    it('should be marked as pure',
-       () => { expect(new PipeResolver().resolve(I18nPluralPipe).pure).toEqual(true); });
+    it('should be marked as pure', () => {
+      expect(new PipeResolver(new JitReflector()).resolve(I18nPluralPipe)!.pure).toEqual(true);
+    });
 
     describe('transform', () => {
       it('should return 0 text if value is 0', () => {
@@ -52,17 +54,19 @@ export function main() {
       });
 
       it('should use "" if value is undefined', () => {
-        const val = pipe.transform(void(0) as any, mapping);
+        const val = pipe.transform(void (0) as any, mapping);
         expect(val).toEqual('');
       });
 
-      it('should not support bad arguments',
-         () => { expect(() => pipe.transform(0, <any>'hey')).toThrowError(); });
+      it('should not support bad arguments', () => {
+        expect(() => pipe.transform(0, <any>'hey')).toThrowError();
+      });
     });
-
   });
 }
 
 class TestLocalization extends NgLocalization {
-  getPluralCategory(value: number): string { return value > 1 && value < 6 ? 'many' : 'other'; }
+  getPluralCategory(value: number): string {
+    return value > 1 && value < 6 ? 'many' : 'other';
+  }
 }

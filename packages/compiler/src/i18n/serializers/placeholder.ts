@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -43,8 +43,6 @@ const TAG_TO_PLACEHOLDER_NAMES: {[k: string]: string} = {
  * Creates unique names for placeholder with different content.
  *
  * Returns the same placeholder name when the content is identical.
- *
- * @internal
  */
 export class PlaceholderRegistry {
   // Count the occurrence of the base name top generate a unique name
@@ -108,7 +106,9 @@ export class PlaceholderRegistry {
     return start + strAttrs + end;
   }
 
-  private _hashClosingTag(tag: string): string { return this._hashTag(`/${tag}`, {}, false); }
+  private _hashClosingTag(tag: string): string {
+    return this._hashTag(`/${tag}`, {}, false);
+  }
 
   private _generateUniqueName(base: string): string {
     const seen = this._placeHolderNameCounts.hasOwnProperty(base);

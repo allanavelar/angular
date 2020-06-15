@@ -1,45 +1,36 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import * as core from '@angular/core';
-import {getDOM} from '../dom_adapter';
+import {APP_INITIALIZER, ApplicationRef, DebugNode, NgProbeToken, NgZone, Optional, Provider, ɵgetDebugNodeR2} from '@angular/core';
 
-const CORE_TOKENS = {
-  'ApplicationRef': core.ApplicationRef,
-  'NgZone': core.NgZone,
-};
+import {exportNgVar} from '../util';
 
-const INSPECT_GLOBAL_NAME = 'ng.probe';
-const CORE_TOKENS_GLOBAL_NAME = 'ng.coreTokens';
+const CORE_TOKENS = (() => ({
+                       'ApplicationRef': ApplicationRef,
+                       'NgZone': NgZone,
+                     }))();
+
+const INSPECT_GLOBAL_NAME = 'probe';
+const CORE_TOKENS_GLOBAL_NAME = 'coreTokens';
 
 /**
  * Returns a {@link DebugElement} for the given native DOM element, or
  * null if the given native element does not have an Angular view associated
  * with it.
  */
-export function inspectNativeElement(element: any): core.DebugNode {
-  return core.getDebugNode(element);
+export function inspectNativeElementR2(element: any): DebugNode|null {
+  return ɵgetDebugNodeR2(element);
 }
 
-/**
- * Deprecated. Use the one from '@angular/core'.
- * @deprecated
- */
-export class NgProbeToken {
-  constructor(public name: string, public token: any) {}
-}
-
-export function _createNgProbe(extraTokens: NgProbeToken[], coreTokens: core.NgProbeToken[]): any {
-  const tokens = (extraTokens || []).concat(coreTokens || []);
-  getDOM().setGlobalVar(INSPECT_GLOBAL_NAME, inspectNativeElement);
-  getDOM().setGlobalVar(
-      CORE_TOKENS_GLOBAL_NAME, {...CORE_TOKENS, ..._ngProbeTokensToMap(tokens || [])});
-  return () => inspectNativeElement;
+export function _createNgProbeR2(coreTokens: NgProbeToken[]): any {
+  exportNgVar(INSPECT_GLOBAL_NAME, inspectNativeElementR2);
+  exportNgVar(CORE_TOKENS_GLOBAL_NAME, {...CORE_TOKENS, ..._ngProbeTokensToMap(coreTokens || [])});
+  return () => inspectNativeElementR2;
 }
 
 function _ngProbeTokensToMap(tokens: NgProbeToken[]): {[name: string]: any} {
@@ -47,16 +38,26 @@ function _ngProbeTokensToMap(tokens: NgProbeToken[]): {[name: string]: any} {
 }
 
 /**
+ * In Ivy, we don't support NgProbe because we have our own set of testing utilities
+ * with more robust functionality.
+ *
+ * We shouldn't bring in NgProbe because it prevents DebugNode and friends from
+ * tree-shaking properly.
+ */
+export const ELEMENT_PROBE_PROVIDERS__POST_R3__ = [];
+
+/**
  * Providers which support debugging Angular applications (e.g. via `ng.probe`).
  */
-export const ELEMENT_PROBE_PROVIDERS: core.Provider[] = [
+export const ELEMENT_PROBE_PROVIDERS__PRE_R3__: Provider[] = [
   {
-    provide: core.APP_INITIALIZER,
-    useFactory: _createNgProbe,
+    provide: APP_INITIALIZER,
+    useFactory: _createNgProbeR2,
     deps: [
-      [NgProbeToken, new core.Optional()],
-      [core.NgProbeToken, new core.Optional()],
+      [NgProbeToken, new Optional()],
     ],
     multi: true,
   },
 ];
+
+export const ELEMENT_PROBE_PROVIDERS = ELEMENT_PROBE_PROVIDERS__PRE_R3__;

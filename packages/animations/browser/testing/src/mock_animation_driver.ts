@@ -1,22 +1,42 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {AUTO_STYLE, AnimationPlayer, NoopAnimationPlayer, ɵStyleData} from '@angular/animations';
+import {AnimationPlayer, AUTO_STYLE, NoopAnimationPlayer, ɵStyleData} from '@angular/animations';
+import {AnimationDriver, ɵallowPreviousPlayerStylesMerge as allowPreviousPlayerStylesMerge, ɵcontainsElement as containsElement, ɵinvokeQuery as invokeQuery, ɵmatchesElement as matchesElement, ɵvalidateStyleProperty as validateStyleProperty} from '@angular/animations/browser';
 
-import {AnimationDriver} from '../../src/render/animation_driver';
 
 /**
- * @experimental Animation support is experimental.
+ * @publicApi
  */
 export class MockAnimationDriver implements AnimationDriver {
   static log: AnimationPlayer[] = [];
 
+  validateStyleProperty(prop: string): boolean {
+    return validateStyleProperty(prop);
+  }
+
+  matchesElement(element: any, selector: string): boolean {
+    return matchesElement(element, selector);
+  }
+
+  containsElement(elm1: any, elm2: any): boolean {
+    return containsElement(elm1, elm2);
+  }
+
+  query(element: any, selector: string, multi: boolean): any[] {
+    return invokeQuery(element, selector, multi);
+  }
+
+  computeStyle(element: any, prop: string, defaultValue?: string): string {
+    return defaultValue || '';
+  }
+
   animate(
-      element: any, keyframes: {[key: string]: string | number}[], duration: number, delay: number,
+      element: any, keyframes: {[key: string]: string|number}[], duration: number, delay: number,
       easing: string, previousPlayers: any[] = []): MockAnimationPlayer {
     const player =
         new MockAnimationPlayer(element, keyframes, duration, delay, easing, previousPlayers);
@@ -26,28 +46,35 @@ export class MockAnimationDriver implements AnimationDriver {
 }
 
 /**
- * @experimental Animation support is experimental.
+ * @publicApi
  */
 export class MockAnimationPlayer extends NoopAnimationPlayer {
   private __finished = false;
-  public previousStyles: {[key: string]: string | number} = {};
+  private __started = false;
+  public previousStyles: {[key: string]: string|number} = {};
   private _onInitFns: (() => any)[] = [];
+  public currentSnapshot: ɵStyleData = {};
 
   constructor(
-      public element: any, public keyframes: {[key: string]: string | number}[],
+      public element: any, public keyframes: {[key: string]: string|number}[],
       public duration: number, public delay: number, public easing: string,
       public previousPlayers: any[]) {
-    super();
-    previousPlayers.forEach(player => {
-      if (player instanceof MockAnimationPlayer) {
-        const styles = player._captureStyles();
-        Object.keys(styles).forEach(prop => { this.previousStyles[prop] = styles[prop]; });
-      }
-    });
+    super(duration, delay);
+
+    if (allowPreviousPlayerStylesMerge(duration, delay)) {
+      previousPlayers.forEach(player => {
+        if (player instanceof MockAnimationPlayer) {
+          const styles = player.currentSnapshot;
+          Object.keys(styles).forEach(prop => this.previousStyles[prop] = styles[prop]);
+        }
+      });
+    }
   }
 
   /* @internal */
-  onInit(fn: () => any) { this._onInitFns.push(fn); }
+  onInit(fn: () => any) {
+    this._onInitFns.push(fn);
+  }
 
   /* @internal */
   init() {
@@ -66,7 +93,19 @@ export class MockAnimationPlayer extends NoopAnimationPlayer {
     this.__finished = true;
   }
 
-  private _captureStyles(): {[styleName: string]: string | number} {
+  /* @internal */
+  triggerMicrotask() {}
+
+  play(): void {
+    super.play();
+    this.__started = true;
+  }
+
+  hasStarted() {
+    return this.__started;
+  }
+
+  beforeDestroy() {
     const captures: ɵStyleData = {};
 
     Object.keys(this.previousStyles).forEach(prop => {
@@ -86,6 +125,6 @@ export class MockAnimationPlayer extends NoopAnimationPlayer {
       });
     }
 
-    return captures;
+    this.currentSnapshot = captures;
   }
 }

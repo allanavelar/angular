@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -15,6 +15,8 @@ import {ɵglobal as global} from '@angular/core';
  *
  * The template cache needs to be built and loaded into window.$templateCache
  * via a separate mechanism.
+ *
+ * @publicApi
  */
 export class CachedResourceLoader extends ResourceLoader {
   private _cache: {[url: string]: string};

@@ -1,69 +1,67 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Provider, ReflectiveInjector} from '@angular/core';
+import {Injector, StaticProvider} from '@angular/core';
 import {AsyncTestCompleter, describe, expect, inject, it} from '@angular/core/testing/src/testing_internal';
 
 import {Options, PerfLogEvent, PerfLogFeatures, UserMetric, WebDriverAdapter} from '../../index';
 
-export function main() {
-  let wdAdapter: MockDriverAdapter;
+(function() {
+let wdAdapter: MockDriverAdapter;
 
-  function createMetric(
-      perfLogs: PerfLogEvent[], perfLogFeatures: PerfLogFeatures,
-      {userMetrics}: {userMetrics?: {[key: string]: string}} = {}): UserMetric {
-    if (!perfLogFeatures) {
-      perfLogFeatures =
-          new PerfLogFeatures({render: true, gc: true, frameCapture: true, userTiming: true});
-    }
-    if (!userMetrics) {
-      userMetrics = {};
-    }
-    wdAdapter = new MockDriverAdapter();
-    const providers: Provider[] = [
-      Options.DEFAULT_PROVIDERS, UserMetric.PROVIDERS,
-      {provide: Options.USER_METRICS, useValue: userMetrics},
-      {provide: WebDriverAdapter, useValue: wdAdapter}
-    ];
-    return ReflectiveInjector.resolveAndCreate(providers).get(UserMetric);
+function createMetric(
+    perfLogs: PerfLogEvent[], perfLogFeatures: PerfLogFeatures,
+    {userMetrics}: {userMetrics?: {[key: string]: string}} = {}): UserMetric {
+  if (!perfLogFeatures) {
+    perfLogFeatures =
+        new PerfLogFeatures({render: true, gc: true, frameCapture: true, userTiming: true});
   }
-
-  describe('user metric', () => {
-
-    it('should describe itself based on userMetrics', () => {
-      expect(createMetric([[]], new PerfLogFeatures(), {
-               userMetrics: {'loadTime': 'time to load'}
-             }).describe())
-          .toEqual({'loadTime': 'time to load'});
-    });
-
-    describe('endMeasure', () => {
-      it('should stop measuring when all properties have numeric values',
-         inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
-           const metric = createMetric(
-               [[]], new PerfLogFeatures(),
-               {userMetrics: {'loadTime': 'time to load', 'content': 'time to see content'}});
-           metric.beginMeasure()
-               .then((_) => metric.endMeasure(true))
-               .then((values: {[key: string]: string}) => {
-                 expect(values['loadTime']).toBe(25);
-                 expect(values['content']).toBe(250);
-                 async.done();
-               });
-
-           wdAdapter.data['loadTime'] = 25;
-           // Wait before setting 2nd property.
-           setTimeout(() => { wdAdapter.data['content'] = 250; }, 50);
-
-         }), 600);
-    });
-  });
+  if (!userMetrics) {
+    userMetrics = {};
+  }
+  wdAdapter = new MockDriverAdapter();
+  const providers: StaticProvider[] = [
+    Options.DEFAULT_PROVIDERS, UserMetric.PROVIDERS,
+    {provide: Options.USER_METRICS, useValue: userMetrics},
+    {provide: WebDriverAdapter, useValue: wdAdapter}
+  ];
+  return Injector.create(providers).get(UserMetric);
 }
+
+describe('user metric', () => {
+  it('should describe itself based on userMetrics', () => {
+    expect(createMetric([[]], new PerfLogFeatures(), {
+             userMetrics: {'loadTime': 'time to load'}
+           }).describe())
+        .toEqual({'loadTime': 'time to load'});
+  });
+
+  describe('endMeasure', () => {
+    it('should stop measuring when all properties have numeric values',
+       inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
+         const metric = createMetric(
+             [[]], new PerfLogFeatures(),
+             {userMetrics: {'loadTime': 'time to load', 'content': 'time to see content'}});
+         metric.beginMeasure().then(() => metric.endMeasure(true)).then(values => {
+           expect(values['loadTime']).toBe(25);
+           expect(values['content']).toBe(250);
+           async.done();
+         });
+
+         wdAdapter.data['loadTime'] = 25;
+         // Wait before setting 2nd property.
+         setTimeout(() => {
+           wdAdapter.data['content'] = 250;
+         }, 50);
+       }), 600);
+  });
+});
+})();
 
 class MockDriverAdapter extends WebDriverAdapter {
   data: any = {};

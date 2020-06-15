@@ -1,74 +1,74 @@
-@title
-Tutorial: Tour of Heroes
+<h1 class="no-toc">Tour of Heroes app and tutorial</h1>
 
-@intro
-The Tour of Heroes tutorial takes you through the steps of creating an Angular application in TypeScript.
+<div class="callout is-helpful">
+<header>Getting Started</header>
 
-@description
+In this tutorial, you build your own app from the ground up, providing experience with the typical development process, as well as an introduction to basic app-design concepts, tools, and terminology.
 
+If you're completely new to Angular, you might want to try the [**Try it now**](start) quick-start app first.
+It is based on a ready-made  partially-completed project, which you can examine and modify in the StacBlitz interactive development environment, where you can see the results in real time.
 
+The "Try it" tutorial covers the same major topics&mdash;components, template syntax, routing, services, and accessing data via HTTP&mdash;in a condensed format, following the most current best practices.
 
-The grand plan for this tutorial is to build an app that helps a staffing agency manage its stable of heroes.
+</div>
 
-The Tour of Heroes app covers the core fundamentals of Angular. You'll build a basic app that
-has many of the features you'd expect to find in a full-blown, data-driven app: acquiring and displaying
-a list of heroes, editing a selected hero's detail, and navigating among different
-views of heroic data.
+This _Tour of Heroes_ tutorial shows you how to set up your local development environment and develop an app using the [Angular CLI tool](cli "CLI command reference"), and provides an introduction to the fundamentals of Angular.
 
-You'll use built-in directives to show and hide elements and display lists of hero data.
-You'll create components to display hero details and show an array of heroes.
-You'll use one-way data binding for read-only data. You'll add editable fields to update a model
-with two-way data binding. You'll bind component methods to user events, like keystrokes and clicks.
-You'll enable users to select a hero from a master list and edit that hero in the details view. You'll
-format data with pipes. You'll create a shared service to assemble the heroes.
-And you'll use routing to navigate among different views and their components.
-<!-- CF: Should this be a bullet list? -->
+The _Tour of Heroes_ app that you build helps a staffing agency manage its stable of heroes.
+The app has many of the features you'd expect to find in any data-driven application.
+The finished app acquires and displays a list of heroes, edits a selected hero's detail, and navigates among different views of heroic data.
 
-You'll learn enough core Angular to get started and gain confidence that
+You will find references to and expansions of this app domain in many of the examples used throughout the Angular documentation, but you don't necessarily need to work through this tutorial to understand those examples.
+
+By the end of this tutorial you will be able to do the following:
+
+* Use built-in Angular [directives](guide/glossary#directive "Directives definition") to show and hide elements and display lists of hero data.
+* Create Angular [components](guide/glossary#component "Components definition") to display hero details and show an array of heroes.
+* Use one-way [data binding](guide/glossary#data-binding "Data binding definition") for read-only data.
+* Add editable fields to update a model with two-way data binding.
+* Bind component methods to user events, like keystrokes and clicks.
+* Enable users to select a hero from a master list and edit that hero in the details view.
+* Format data with [pipes](guide/glossary#pipe "Pipe definition").
+* Create a shared [service](guide/glossary#service "Service definition") to assemble the heroes.
+* Use [routing](guide/glossary#router "Router definition") to navigate among different views and their components.
+
+You'll learn enough Angular to get started and gain confidence that
 Angular can do whatever you need it to do.
-You'll cover a lot of ground at an introductory level, and you'll find many links
-to pages with greater depth.
 
-When you're done with this tutorial, the app will look like this <live-example name="toh-6"></live-example>.
+<div class="callout is-helpful">
+<header>Solution</header>
 
+After completing all tutorial steps, the final app will look like this: <live-example name="toh-pt6"></live-example>.
 
+</div>
 
-
-## The end game
+## What you'll build
 
 Here's a visual idea of where this tutorial leads, beginning with the "Dashboard"
 view and the most heroic heroes:
 
+<div class="lightbox">
+  <img src='generated/images/guide/toh/heroes-dashboard-1.png' alt="Output of heroes dashboard">
+</div>
 
-<figure class='image-display'>
-  <img src='assets/images/devguide/toh/heroes-dashboard-1.png' alt="Output of heroes dashboard"></img>
-</figure>
-
-
-
-You can click the two links above the dashboard ("Dashboard" and "Heroes") 
+You can click the two links above the dashboard ("Dashboard" and "Heroes")
 to navigate between this Dashboard view and a Heroes view.
 
 If you click the dashboard hero "Magneta," the router opens a "Hero Details" view
 where you can change the hero's name.
 
-
-<figure class='image-display'>
-  <img src='assets/images/devguide/toh/hero-details-1.png' alt="Details of hero in app"></img>
-</figure>
-
-
+<div class="lightbox">
+  <img src='generated/images/guide/toh/hero-details-1.png' alt="Details of hero in app">
+</div>
 
 Clicking the "Back" button returns you to the Dashboard.
 Links at the top take you to either of the main views.
 If you click "Heroes," the app displays the "Heroes" master list view.
 
 
-<figure class='image-display'>
-  <img src='assets/images/devguide/toh/heroes-list-2.png' alt="Output of heroes list app"></img>
-</figure>
-
-
+<div class="lightbox">
+  <img src='generated/images/guide/toh/heroes-list-2.png' alt="Output of heroes list app">
+</div>
 
 When you click a different hero name, the read-only mini detail beneath the list reflects the new choice.
 
@@ -77,27 +77,12 @@ editable details of the selected hero.
 
 The following diagram captures all of the navigation options.
 
-
-<figure class='image-display'>
-  <img src='assets/images/devguide/toh/nav-diagram.png' alt="View navigations"></img>
-</figure>
-
-
+<div class="lightbox">
+  <img src='generated/images/guide/toh/nav-diagram.png' alt="View navigations">
+</div>
 
 Here's the app in action:
 
-
-<figure class='image-display'>
-  <img src='assets/images/devguide/toh/toh-anim.gif' alt="Tour of Heroes in Action"></img>
-</figure>
-
-
-
-
-## Up next
-
-You'll build the Tour of Heroes app, step by step.
-Each step is motivated with a requirement that you've likely
-met in many applications. Everything has a reason.
-
-Along the way, you'll become familiar with many of the core fundamentals of Angular.
+<div class="lightbox">
+  <img src='generated/images/guide/toh/toh-anim.gif' alt="Tour of Heroes in Action">
+</div>

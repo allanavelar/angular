@@ -1,12 +1,13 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {APP_ID, NgModule, NgZone, PLATFORM_INITIALIZER, PlatformRef, Provider, createPlatformFactory, platformCore} from '@angular/core';
+import {APP_ID, createPlatformFactory, NgModule, NgZone, PLATFORM_INITIALIZER, platformCore, PlatformRef, StaticProvider} from '@angular/core';
 import {BrowserModule, ɵBrowserDomAdapter as BrowserDomAdapter, ɵELEMENT_PROBE_PROVIDERS as ELEMENT_PROBE_PROVIDERS} from '@angular/platform-browser';
+
 import {BrowserDetection, createNgZone} from './browser_util';
 
 function initBrowserTests() {
@@ -14,13 +15,13 @@ function initBrowserTests() {
   BrowserDetection.setup();
 }
 
-const _TEST_BROWSER_PLATFORM_PROVIDERS: Provider[] =
+const _TEST_BROWSER_PLATFORM_PROVIDERS: StaticProvider[] =
     [{provide: PLATFORM_INITIALIZER, useValue: initBrowserTests, multi: true}];
 
 /**
  * Platform for testing
  *
- * @stable
+ * @publicApi
  */
 export const platformBrowserTesting =
     createPlatformFactory(platformCore, 'browserTesting', _TEST_BROWSER_PLATFORM_PROVIDERS);
@@ -28,7 +29,7 @@ export const platformBrowserTesting =
 /**
  * NgModule for testing.
  *
- * @stable
+ * @publicApi
  */
 @NgModule({
   exports: [BrowserModule],

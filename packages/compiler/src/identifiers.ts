@@ -1,144 +1,137 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ANALYZE_FOR_ENTRY_COMPONENTS, ChangeDetectionStrategy, ChangeDetectorRef, ComponentFactory, ComponentFactoryResolver, ComponentRef, ElementRef, Injector, LOCALE_ID, NgModuleFactory, NgModuleRef, QueryList, Renderer, SecurityContext, TRANSLATIONS_FORMAT, TemplateRef, ViewContainerRef, ViewEncapsulation, ɵCodegenComponentFactoryResolver, ɵEMPTY_ARRAY, ɵEMPTY_MAP, ɵNgModuleInjector, ɵand, ɵccf, ɵcrt, ɵdid, ɵeld, ɵinlineInterpolate, ɵinterpolate, ɵncd, ɵnov, ɵpad, ɵpid, ɵpod, ɵppd, ɵprd, ɵqud, ɵreflector, ɵregisterModuleFactory, ɵted, ɵunv, ɵvid} from '@angular/core';
+import {CompileTokenMetadata} from './compile_metadata';
+import {CompileReflector} from './compile_reflector';
+import * as o from './output/output_ast';
 
-import {CompileIdentifierMetadata, CompileTokenMetadata} from './compile_metadata';
-
-const CORE = assetUrl('core');
-
-export interface IdentifierSpec {
-  name: string;
-  moduleUrl: string;
-  runtime: any;
-}
+const CORE = '@angular/core';
 
 export class Identifiers {
-  static ANALYZE_FOR_ENTRY_COMPONENTS: IdentifierSpec = {
+  static ANALYZE_FOR_ENTRY_COMPONENTS: o.ExternalReference = {
     name: 'ANALYZE_FOR_ENTRY_COMPONENTS',
-    moduleUrl: CORE,
-    runtime: ANALYZE_FOR_ENTRY_COMPONENTS
+    moduleName: CORE,
+
   };
-  static ElementRef: IdentifierSpec = {name: 'ElementRef', moduleUrl: CORE, runtime: ElementRef};
-  static NgModuleRef: IdentifierSpec = {name: 'NgModuleRef', moduleUrl: CORE, runtime: NgModuleRef};
-  static ViewContainerRef:
-      IdentifierSpec = {name: 'ViewContainerRef', moduleUrl: CORE, runtime: ViewContainerRef};
-  static ChangeDetectorRef:
-      IdentifierSpec = {name: 'ChangeDetectorRef', moduleUrl: CORE, runtime: ChangeDetectorRef};
-  static QueryList: IdentifierSpec = {name: 'QueryList', moduleUrl: CORE, runtime: QueryList};
-  static TemplateRef: IdentifierSpec = {name: 'TemplateRef', moduleUrl: CORE, runtime: TemplateRef};
-  static CodegenComponentFactoryResolver: IdentifierSpec = {
+  static ElementRef: o.ExternalReference = {name: 'ElementRef', moduleName: CORE};
+  static NgModuleRef: o.ExternalReference = {name: 'NgModuleRef', moduleName: CORE};
+  static ViewContainerRef: o.ExternalReference = {name: 'ViewContainerRef', moduleName: CORE};
+  static ChangeDetectorRef: o.ExternalReference = {
+    name: 'ChangeDetectorRef',
+    moduleName: CORE,
+
+  };
+  static QueryList: o.ExternalReference = {name: 'QueryList', moduleName: CORE};
+  static TemplateRef: o.ExternalReference = {name: 'TemplateRef', moduleName: CORE};
+  static Renderer2: o.ExternalReference = {name: 'Renderer2', moduleName: CORE};
+  static CodegenComponentFactoryResolver: o.ExternalReference = {
     name: 'ɵCodegenComponentFactoryResolver',
-    moduleUrl: CORE,
-    runtime: ɵCodegenComponentFactoryResolver
+    moduleName: CORE,
+
   };
-  static ComponentFactoryResolver: IdentifierSpec = {
+  static ComponentFactoryResolver: o.ExternalReference = {
     name: 'ComponentFactoryResolver',
-    moduleUrl: CORE,
-    runtime: ComponentFactoryResolver
+    moduleName: CORE,
+
   };
-  static ComponentFactory:
-      IdentifierSpec = {name: 'ComponentFactory', moduleUrl: CORE, runtime: ComponentFactory};
-  static ComponentRef:
-      IdentifierSpec = {name: 'ComponentRef', moduleUrl: CORE, runtime: ComponentRef};
-  static NgModuleFactory:
-      IdentifierSpec = {name: 'NgModuleFactory', moduleUrl: CORE, runtime: NgModuleFactory};
-  static NgModuleInjector: IdentifierSpec = {
-    name: 'ɵNgModuleInjector',
-    moduleUrl: CORE,
-    runtime: ɵNgModuleInjector,
+  static ComponentFactory: o.ExternalReference = {name: 'ComponentFactory', moduleName: CORE};
+  static ComponentRef: o.ExternalReference = {name: 'ComponentRef', moduleName: CORE};
+  static NgModuleFactory: o.ExternalReference = {name: 'NgModuleFactory', moduleName: CORE};
+  static createModuleFactory: o.ExternalReference = {
+    name: 'ɵcmf',
+    moduleName: CORE,
+
   };
-  static RegisterModuleFactoryFn: IdentifierSpec = {
+  static moduleDef: o.ExternalReference = {
+    name: 'ɵmod',
+    moduleName: CORE,
+
+  };
+  static moduleProviderDef: o.ExternalReference = {
+    name: 'ɵmpd',
+    moduleName: CORE,
+
+  };
+  static RegisterModuleFactoryFn: o.ExternalReference = {
     name: 'ɵregisterModuleFactory',
-    moduleUrl: CORE,
-    runtime: ɵregisterModuleFactory,
+    moduleName: CORE,
+
   };
-  static Injector: IdentifierSpec = {name: 'Injector', moduleUrl: CORE, runtime: Injector};
-  static ViewEncapsulation:
-      IdentifierSpec = {name: 'ViewEncapsulation', moduleUrl: CORE, runtime: ViewEncapsulation};
-  static ChangeDetectionStrategy: IdentifierSpec = {
+  static inject: o.ExternalReference = {name: 'ɵɵinject', moduleName: CORE};
+  static directiveInject: o.ExternalReference = {name: 'ɵɵdirectiveInject', moduleName: CORE};
+  static INJECTOR: o.ExternalReference = {name: 'INJECTOR', moduleName: CORE};
+  static Injector: o.ExternalReference = {name: 'Injector', moduleName: CORE};
+  static ɵɵdefineInjectable: o.ExternalReference = {name: 'ɵɵdefineInjectable', moduleName: CORE};
+  static InjectableDef: o.ExternalReference = {name: 'ɵɵInjectableDef', moduleName: CORE};
+  static ViewEncapsulation: o.ExternalReference = {
+    name: 'ViewEncapsulation',
+    moduleName: CORE,
+
+  };
+  static ChangeDetectionStrategy: o.ExternalReference = {
     name: 'ChangeDetectionStrategy',
-    moduleUrl: CORE,
-    runtime: ChangeDetectionStrategy
+    moduleName: CORE,
+
   };
-  static SecurityContext: IdentifierSpec = {
+  static SecurityContext: o.ExternalReference = {
     name: 'SecurityContext',
-    moduleUrl: CORE,
-    runtime: SecurityContext,
+    moduleName: CORE,
+
   };
-  static LOCALE_ID: IdentifierSpec = {name: 'LOCALE_ID', moduleUrl: CORE, runtime: LOCALE_ID};
-  static TRANSLATIONS_FORMAT:
-      IdentifierSpec = {name: 'TRANSLATIONS_FORMAT', moduleUrl: CORE, runtime: TRANSLATIONS_FORMAT};
-  static inlineInterpolate:
-      IdentifierSpec = {name: 'ɵinlineInterpolate', moduleUrl: CORE, runtime: ɵinlineInterpolate};
-  static interpolate:
-      IdentifierSpec = {name: 'ɵinterpolate', moduleUrl: CORE, runtime: ɵinterpolate};
-  static EMPTY_ARRAY:
-      IdentifierSpec = {name: 'ɵEMPTY_ARRAY', moduleUrl: CORE, runtime: ɵEMPTY_ARRAY};
-  static EMPTY_MAP: IdentifierSpec = {name: 'ɵEMPTY_MAP', moduleUrl: CORE, runtime: ɵEMPTY_MAP};
-  static Renderer: IdentifierSpec = {name: 'Renderer', moduleUrl: CORE, runtime: Renderer};
-  static viewDef: IdentifierSpec = {name: 'ɵvid', moduleUrl: CORE, runtime: ɵvid};
-  static elementDef: IdentifierSpec = {name: 'ɵeld', moduleUrl: CORE, runtime: ɵeld};
-  static anchorDef: IdentifierSpec = {name: 'ɵand', moduleUrl: CORE, runtime: ɵand};
-  static textDef: IdentifierSpec = {name: 'ɵted', moduleUrl: CORE, runtime: ɵted};
-  static directiveDef: IdentifierSpec = {name: 'ɵdid', moduleUrl: CORE, runtime: ɵdid};
-  static providerDef: IdentifierSpec = {name: 'ɵprd', moduleUrl: CORE, runtime: ɵprd};
-  static queryDef: IdentifierSpec = {name: 'ɵqud', moduleUrl: CORE, runtime: ɵqud};
-  static pureArrayDef: IdentifierSpec = {name: 'ɵpad', moduleUrl: CORE, runtime: ɵpad};
-  static pureObjectDef: IdentifierSpec = {name: 'ɵpod', moduleUrl: CORE, runtime: ɵpod};
-  static purePipeDef: IdentifierSpec = {name: 'ɵppd', moduleUrl: CORE, runtime: ɵppd};
-  static pipeDef: IdentifierSpec = {name: 'ɵpid', moduleUrl: CORE, runtime: ɵpid};
-  static nodeValue: IdentifierSpec = {name: 'ɵnov', moduleUrl: CORE, runtime: ɵnov};
-  static ngContentDef: IdentifierSpec = {name: 'ɵncd', moduleUrl: CORE, runtime: ɵncd};
-  static unwrapValue: IdentifierSpec = {name: 'ɵunv', moduleUrl: CORE, runtime: ɵunv};
-  static createRendererType2: IdentifierSpec = {name: 'ɵcrt', moduleUrl: CORE, runtime: ɵcrt};
-  static RendererType2: IdentifierSpec = {
+  static LOCALE_ID: o.ExternalReference = {name: 'LOCALE_ID', moduleName: CORE};
+  static TRANSLATIONS_FORMAT: o.ExternalReference = {
+    name: 'TRANSLATIONS_FORMAT',
+    moduleName: CORE,
+
+  };
+  static inlineInterpolate: o.ExternalReference = {
+    name: 'ɵinlineInterpolate',
+    moduleName: CORE,
+  };
+  static interpolate: o.ExternalReference = {name: 'ɵinterpolate', moduleName: CORE};
+  static EMPTY_ARRAY: o.ExternalReference = {name: 'ɵEMPTY_ARRAY', moduleName: CORE};
+  static EMPTY_MAP: o.ExternalReference = {name: 'ɵEMPTY_MAP', moduleName: CORE};
+  static Renderer: o.ExternalReference = {name: 'Renderer', moduleName: CORE};
+  static viewDef: o.ExternalReference = {name: 'ɵvid', moduleName: CORE};
+  static elementDef: o.ExternalReference = {name: 'ɵeld', moduleName: CORE};
+  static anchorDef: o.ExternalReference = {name: 'ɵand', moduleName: CORE};
+  static textDef: o.ExternalReference = {name: 'ɵted', moduleName: CORE};
+  static directiveDef: o.ExternalReference = {name: 'ɵdid', moduleName: CORE};
+  static providerDef: o.ExternalReference = {name: 'ɵprd', moduleName: CORE};
+  static queryDef: o.ExternalReference = {name: 'ɵqud', moduleName: CORE};
+  static pureArrayDef: o.ExternalReference = {name: 'ɵpad', moduleName: CORE};
+  static pureObjectDef: o.ExternalReference = {name: 'ɵpod', moduleName: CORE};
+  static purePipeDef: o.ExternalReference = {name: 'ɵppd', moduleName: CORE};
+  static pipeDef: o.ExternalReference = {name: 'ɵpid', moduleName: CORE};
+  static nodeValue: o.ExternalReference = {name: 'ɵnov', moduleName: CORE};
+  static ngContentDef: o.ExternalReference = {name: 'ɵncd', moduleName: CORE};
+  static unwrapValue: o.ExternalReference = {name: 'ɵunv', moduleName: CORE};
+  static createRendererType2: o.ExternalReference = {name: 'ɵcrt', moduleName: CORE};
+  // type only
+  static RendererType2: o.ExternalReference = {
     name: 'RendererType2',
-    moduleUrl: CORE,
-    // type only
-    runtime: null
+    moduleName: CORE,
+
   };
-  static ViewDefinition: IdentifierSpec = {
+  // type only
+  static ViewDefinition: o.ExternalReference = {
     name: 'ɵViewDefinition',
-    moduleUrl: CORE,
-    // type only
-    runtime: null
+    moduleName: CORE,
   };
-  static createComponentFactory: IdentifierSpec = {name: 'ɵccf', moduleUrl: CORE, runtime: ɵccf};
+  static createComponentFactory: o.ExternalReference = {name: 'ɵccf', moduleName: CORE};
+  static setClassMetadata: o.ExternalReference = {name: 'ɵsetClassMetadata', moduleName: CORE};
 }
 
-export function assetUrl(pkg: string, path: string | null = null, type: string = 'src'): string {
-  if (path == null) {
-    return `@angular/${pkg}`;
-  } else {
-    return `@angular/${pkg}/${type}/${path}`;
-  }
+export function createTokenForReference(reference: any): CompileTokenMetadata {
+  return {identifier: {reference: reference}};
 }
 
-export function resolveIdentifier(identifier: IdentifierSpec) {
-  let name = identifier.name;
-  return ɵreflector.resolveIdentifier(name, identifier.moduleUrl, null, identifier.runtime);
-}
-
-export function createIdentifier(identifier: IdentifierSpec): CompileIdentifierMetadata {
-  return {reference: resolveIdentifier(identifier)};
-}
-
-export function identifierToken(identifier: CompileIdentifierMetadata): CompileTokenMetadata {
-  return {identifier: identifier};
-}
-
-export function createIdentifierToken(identifier: IdentifierSpec): CompileTokenMetadata {
-  return identifierToken(createIdentifier(identifier));
-}
-
-export function createEnumIdentifier(
-    enumType: IdentifierSpec, name: string): CompileIdentifierMetadata {
-  const resolvedEnum = ɵreflector.resolveEnum(resolveIdentifier(enumType), name);
-  return {reference: resolvedEnum};
+export function createTokenForExternalReference(
+    reflector: CompileReflector, reference: o.ExternalReference): CompileTokenMetadata {
+  return createTokenForReference(reflector.resolveExternalReference(reference));
 }

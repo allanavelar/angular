@@ -1,16 +1,15 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 import * as html from '../ml_parser/ast';
-import {splitNsName} from '../ml_parser/tags';
+import {isNgContent} from '../ml_parser/tags';
 
 const NG_CONTENT_SELECT_ATTR = 'select';
-const NG_CONTENT_ELEMENT = 'ng-content';
 const LINK_ELEMENT = 'link';
 const LINK_STYLE_REL_ATTR = 'rel';
 const LINK_STYLE_HREF_ATTR = 'href';
@@ -21,11 +20,11 @@ const NG_NON_BINDABLE_ATTR = 'ngNonBindable';
 const NG_PROJECT_AS = 'ngProjectAs';
 
 export function preparseElement(ast: html.Element): PreparsedElement {
-  let selectAttr: string = null !;
-  let hrefAttr: string = null !;
-  let relAttr: string = null !;
+  let selectAttr: string = null!;
+  let hrefAttr: string = null!;
+  let relAttr: string = null!;
   let nonBindable = false;
-  let projectAs: string = null !;
+  let projectAs = '';
   ast.attrs.forEach(attr => {
     const lcAttrName = attr.name.toLowerCase();
     if (lcAttrName == NG_CONTENT_SELECT_ATTR) {
@@ -45,7 +44,7 @@ export function preparseElement(ast: html.Element): PreparsedElement {
   selectAttr = normalizeNgContentSelect(selectAttr);
   const nodeName = ast.name.toLowerCase();
   let type = PreparsedElementType.OTHER;
-  if (splitNsName(nodeName)[1] == NG_CONTENT_ELEMENT) {
+  if (isNgContent(nodeName)) {
     type = PreparsedElementType.NG_CONTENT;
   } else if (nodeName == STYLE_ELEMENT) {
     type = PreparsedElementType.STYLE;

@@ -9,10 +9,10 @@ import { RouterModule, Routes } from '@angular/router';
 // #enddocregion import-router
 
 import { AppComponent }          from './app.component';
-import { CrisisListComponent }   from './crisis-list.component';
-import { HeroListComponent }     from './hero-list.component';
+import { CrisisListComponent }   from './crisis-list/crisis-list.component';
+import { HeroListComponent }     from './hero-list/hero-list.component';
 // #enddocregion first-config
-import { PageNotFoundComponent } from './not-found.component';
+import { PageNotFoundComponent } from './page-not-found/page-not-found.component';
 // #docregion first-config
 
 // #docregion appRoutes
@@ -33,7 +33,10 @@ const appRoutes: Routes = [
   imports: [
     BrowserModule,
     FormsModule,
-    RouterModule.forRoot(appRoutes)
+    RouterModule.forRoot(
+      appRoutes,
+      { enableTracing: true } // <-- debugging purposes only
+    )
   ],
   declarations: [
     AppComponent,

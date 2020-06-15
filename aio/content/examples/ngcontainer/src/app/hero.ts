@@ -1,13 +1,13 @@
 // #docregion
-export class Hero {
+export interface Hero {
   id: number;
   name: string;
   emotion?: string;
 }
 
 export const heroes: Hero[] = [
-  { id: 1, name: 'Mr. Nice',  emotion: 'happy'},
-  { id: 2, name: 'Narco',     emotion: 'sad' },
+  { id: 1, name: 'Dr Nice', emotion: 'happy' },
+  { id: 2, name: 'Narco', emotion: 'sad' },
   { id: 3, name: 'Windstorm', emotion: 'confused' },
-  { id: 4, name: 'Magneta'}
+  { id: 4, name: 'Magneta' }
 ];

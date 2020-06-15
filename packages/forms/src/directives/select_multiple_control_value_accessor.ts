@@ -1,15 +1,16 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Directive, ElementRef, Host, Input, OnDestroy, Optional, Provider, Renderer, forwardRef, ɵlooseIdentical as looseIdentical} from '@angular/core';
+import {Directive, ElementRef, forwardRef, Host, Input, OnDestroy, Optional, Renderer2, StaticProvider} from '@angular/core';
+
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from './control_value_accessor';
 
-export const SELECT_MULTIPLE_VALUE_ACCESSOR: Provider = {
+export const SELECT_MULTIPLE_VALUE_ACCESSOR: StaticProvider = {
   provide: NG_VALUE_ACCESSOR,
   useExisting: forwardRef(() => SelectMultipleControlValueAccessor),
   multi: true
@@ -34,39 +35,45 @@ interface HTMLOption {
 
 /** Mock interface for HTMLCollection */
 abstract class HTMLCollection {
-  length: number;
+  // TODO(issue/24571): remove '!'.
+  length!: number;
   abstract item(_: number): HTMLOption;
 }
 
 /**
- * The accessor for writing a value and listening to changes on a select element.
+ * @description
+ * The `ControlValueAccessor` for writing multi-select control values and listening to multi-select
+ * control changes. The value accessor is used by the `FormControlDirective`, `FormControlName`, and
+ * `NgModel` directives.
  *
- *  ### Caveat: Options selection
+ * @see `SelectControlValueAccessor`
  *
- * Angular uses object identity to select options. It's possible for the identities of items
- * to change while the data does not. This can happen, for example, if the items are produced
- * from an RPC to the server, and that RPC is re-run. Even if the data hasn't changed, the
- * second response will produce objects with different identities.
+ * @usageNotes
  *
- * To customize the default option comparison algorithm, `<select multiple>` supports `compareWith`
- * input. `compareWith` takes a **function** which has two arguments: `option1` and `option2`.
- * If `compareWith` is given, Angular selects options by the return value of the function.
+ * ### Using a multi-select control
  *
- * #### Syntax
+ * The follow example shows you how to use a multi-select control with a reactive form.
+ *
+ * ```ts
+ * const countryControl = new FormControl();
+ * ```
  *
  * ```
- * <select multiple [compareWith]="compareFn"  [(ngModel)]="selectedCountries">
- *     <option *ngFor="let country of countries" [ngValue]="country">
- *         {{country.name}}
- *     </option>
+ * <select multiple name="countries" [formControl]="countryControl">
+ *   <option *ngFor="let country of countries" [ngValue]="country">
+ *     {{ country.name }}
+ *   </option>
  * </select>
- *
- * compareFn(c1: Country, c2: Country): boolean {
- *     return c1 && c2 ? c1.id === c2.id : c1 === c2;
- * }
  * ```
  *
- * @stable
+ * ### Customizing option selection
+ *
+ * To customize the default option comparison algorithm, `<select>` supports `compareWith` input.
+ * See the `SelectControlValueAccessor` for usage.
+ *
+ * @ngModule ReactiveFormsModule
+ * @ngModule FormsModule
+ * @publicApi
  */
 @Directive({
   selector:
@@ -75,15 +82,34 @@ abstract class HTMLCollection {
   providers: [SELECT_MULTIPLE_VALUE_ACCESSOR]
 })
 export class SelectMultipleControlValueAccessor implements ControlValueAccessor {
+  /**
+   * @description
+   * The current value
+   */
   value: any;
+
   /** @internal */
-  _optionMap: Map<string, NgSelectMultipleOption> = new Map<string, NgSelectMultipleOption>();
+  _optionMap: Map<string, ɵNgSelectMultipleOption> = new Map<string, ɵNgSelectMultipleOption>();
   /** @internal */
   _idCounter: number = 0;
 
+  /**
+   * @description
+   * The registered callback function called when a change event occurs on the input element.
+   */
   onChange = (_: any) => {};
+
+  /**
+   * @description
+   * The registered callback function called when a blur event occurs on the input element.
+   */
   onTouched = () => {};
 
+  /**
+   * @description
+   * Tracks the option comparison algorithm for tracking identities when
+   * checking for changes.
+   */
   @Input()
   set compareWith(fn: (o1: any, o2: any) => boolean) {
     if (typeof fn !== 'function') {
@@ -92,23 +118,41 @@ export class SelectMultipleControlValueAccessor implements ControlValueAccessor 
     this._compareWith = fn;
   }
 
-  private _compareWith: (o1: any, o2: any) => boolean = looseIdentical;
+  private _compareWith: (o1: any, o2: any) => boolean = Object.is;
 
-  constructor(private _renderer: Renderer, private _elementRef: ElementRef) {}
+  constructor(private _renderer: Renderer2, private _elementRef: ElementRef) {}
 
+  /**
+   * @description
+   * Sets the "value" property on one or of more
+   * of the select's options.
+   *
+   * @param value The value
+   */
   writeValue(value: any): void {
     this.value = value;
-    let optionSelectedStateSetter: (opt: NgSelectMultipleOption, o: any) => void;
+    let optionSelectedStateSetter: (opt: ɵNgSelectMultipleOption, o: any) => void;
     if (Array.isArray(value)) {
       // convert values to ids
       const ids = value.map((v) => this._getOptionId(v));
-      optionSelectedStateSetter = (opt, o) => { opt._setSelected(ids.indexOf(o.toString()) > -1); };
+      optionSelectedStateSetter = (opt, o) => {
+        opt._setSelected(ids.indexOf(o.toString()) > -1);
+      };
     } else {
-      optionSelectedStateSetter = (opt, o) => { opt._setSelected(false); };
+      optionSelectedStateSetter = (opt, o) => {
+        opt._setSelected(false);
+      };
     }
     this._optionMap.forEach(optionSelectedStateSetter);
   }
 
+  /**
+   * @description
+   * Registers a function called when the control value changes
+   * and writes an array of the selected options.
+   *
+   * @param fn The callback function
+   */
   registerOnChange(fn: (value: any) => any): void {
     this.onChange = (_: any) => {
       const selected: Array<any> = [];
@@ -135,23 +179,37 @@ export class SelectMultipleControlValueAccessor implements ControlValueAccessor 
       fn(selected);
     };
   }
-  registerOnTouched(fn: () => any): void { this.onTouched = fn; }
 
+  /**
+   * @description
+   * Registers a function called when the control is touched.
+   *
+   * @param fn The callback function
+   */
+  registerOnTouched(fn: () => any): void {
+    this.onTouched = fn;
+  }
+
+  /**
+   * Sets the "disabled" property on the select input element.
+   *
+   * @param isDisabled The disabled value
+   */
   setDisabledState(isDisabled: boolean): void {
-    this._renderer.setElementProperty(this._elementRef.nativeElement, 'disabled', isDisabled);
+    this._renderer.setProperty(this._elementRef.nativeElement, 'disabled', isDisabled);
   }
 
   /** @internal */
-  _registerOption(value: NgSelectMultipleOption): string {
+  _registerOption(value: ɵNgSelectMultipleOption): string {
     const id: string = (this._idCounter++).toString();
     this._optionMap.set(id, value);
     return id;
   }
 
   /** @internal */
-  _getOptionId(value: any): string {
+  _getOptionId(value: any): string|null {
     for (const id of Array.from(this._optionMap.keys())) {
-      if (this._compareWith(this._optionMap.get(id)._value, value)) return id;
+      if (this._compareWith(this._optionMap.get(id)!._value, value)) return id;
     }
     return null;
   }
@@ -159,35 +217,40 @@ export class SelectMultipleControlValueAccessor implements ControlValueAccessor 
   /** @internal */
   _getOptionValue(valueString: string): any {
     const id: string = _extractId(valueString);
-    return this._optionMap.has(id) ? this._optionMap.get(id)._value : valueString;
+    return this._optionMap.has(id) ? this._optionMap.get(id)!._value : valueString;
   }
 }
 
 /**
+ * @description
  * Marks `<option>` as dynamic, so Angular can be notified when options change.
  *
- * ### Example
+ * @see `SelectMultipleControlValueAccessor`
  *
- * ```
- * <select multiple name="city" ngModel>
- *   <option *ngFor="let c of cities" [value]="c"></option>
- * </select>
- * ```
+ * @ngModule ReactiveFormsModule
+ * @ngModule FormsModule
+ * @publicApi
  */
 @Directive({selector: 'option'})
-export class NgSelectMultipleOption implements OnDestroy {
-  id: string;
+export class ɵNgSelectMultipleOption implements OnDestroy {
+  // TODO(issue/24571): remove '!'.
+  id!: string;
   /** @internal */
   _value: any;
 
   constructor(
-      private _element: ElementRef, private _renderer: Renderer,
+      private _element: ElementRef, private _renderer: Renderer2,
       @Optional() @Host() private _select: SelectMultipleControlValueAccessor) {
     if (this._select) {
       this.id = this._select._registerOption(this);
     }
   }
 
+  /**
+   * @description
+   * Tracks the value bound to the option element. Unlike the value binding,
+   * ngValue supports binding to objects.
+   */
   @Input('ngValue')
   set ngValue(value: any) {
     if (this._select == null) return;
@@ -196,6 +259,11 @@ export class NgSelectMultipleOption implements OnDestroy {
     this._select.writeValue(this._select.value);
   }
 
+  /**
+   * @description
+   * Tracks simple string values bound to the option element.
+   * For objects, use the `ngValue` input binding.
+   */
   @Input('value')
   set value(value: any) {
     if (this._select) {
@@ -209,14 +277,18 @@ export class NgSelectMultipleOption implements OnDestroy {
 
   /** @internal */
   _setElementValue(value: string): void {
-    this._renderer.setElementProperty(this._element.nativeElement, 'value', value);
+    this._renderer.setProperty(this._element.nativeElement, 'value', value);
   }
 
   /** @internal */
   _setSelected(selected: boolean) {
-    this._renderer.setElementProperty(this._element.nativeElement, 'selected', selected);
+    this._renderer.setProperty(this._element.nativeElement, 'selected', selected);
   }
 
+  /**
+   * @description
+   * Lifecycle method called before the directive's instance is destroyed. For internal use only.
+   */
   ngOnDestroy(): void {
     if (this._select) {
       this._select._optionMap.delete(this.id);
@@ -224,3 +296,5 @@ export class NgSelectMultipleOption implements OnDestroy {
     }
   }
 }
+
+export {ɵNgSelectMultipleOption as NgSelectMultipleOption};

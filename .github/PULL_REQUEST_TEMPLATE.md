@@ -1,36 +1,43 @@
-**Please check if the PR fulfills these requirements**
+## PR Checklist
+Please check if your PR fulfills the following requirements:
+
 - [ ] The commit message follows our guidelines: https://github.com/angular/angular/blob/master/CONTRIBUTING.md#commit
 - [ ] Tests for the changes have been added (for bug fixes / features)
 - [ ] Docs have been added / updated (for bug fixes / features)
 
 
-**What kind of change does this PR introduce?** (check one with "x")
-```
-[ ] Bugfix
-[ ] Feature
-[ ] Code style update (formatting, local variables)
-[ ] Refactoring (no functional changes, no api changes)
-[ ] Build related changes
-[ ] CI related changes
-[ ] Other... Please describe:
-```
+## PR Type
+What kind of change does this PR introduce?
 
-**What is the current behavior?** (You can also link to an open issue here)
+<!-- Please check the one that applies to this PR using "x". -->
 
-
-
-**What is the new behavior?**
+- [ ] Bugfix
+- [ ] Feature
+- [ ] Code style update (formatting, local variables)
+- [ ] Refactoring (no functional changes, no api changes)
+- [ ] Build related changes
+- [ ] CI related changes
+- [ ] Documentation content changes
+- [ ] angular.io application / infrastructure changes
+- [ ] Other... Please describe:
 
 
+## What is the current behavior?
+<!-- Please describe the current behavior that you are modifying, or link to a relevant issue. -->
 
-**Does this PR introduce a breaking change?** (check one with "x")
-```
-[ ] Yes
-[ ] No
-```
-
-If this PR contains a breaking change, please describe the impact and migration path for existing applications: ...
+Issue Number: N/A
 
 
-**Other information**:
+## What is the new behavior?
 
+
+## Does this PR introduce a breaking change?
+
+- [ ] Yes
+- [ ] No
+
+
+<!-- If this PR contains a breaking change, please describe the impact and migration path for existing applications below. -->
+
+
+## Other information

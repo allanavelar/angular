@@ -14,11 +14,17 @@ Ctrl + Shift + j.
 By default the debug tools are disabled. You can enable debug tools as follows:
 
 ```typescript
+import {ApplicationRef} from '@angular/core';
+import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
 import {enableDebugTools} from '@angular/platform-browser';
 
-bootstrap(Application).then((appRef) => {
-  enableDebugTools(appRef);
-});
+
+platformBrowserDynamic().bootstrapModule(AppModule)
+  .then(moduleRef => {
+    const applicationRef = moduleRef.injector.get(ApplicationRef);
+    const appComponent = applicationRef.components[0];
+    enableDebugTools(appComponent);
+  })
 ```
 
 ### Using debug tools
@@ -37,7 +43,7 @@ ng.profiler.timeChangeDetection();
 ### Change detection profiler
 
 If your application is janky (it misses frames) or is slow according to other
-metrics it is important to find the root cause of the issue. Change detection
+metrics, it is important to find the root cause of the issue. Change detection
 is a phase in Angular's lifecycle that detects changes in values that are
 bound to UI, and if it finds a change it performs the corresponding UI update.
 However, sometimes it is hard to tell if the slowness is due to the act of
@@ -45,7 +51,7 @@ computing the changes being slow, or due to the act of applying those changes
 to the UI. For your application to be performant it is important that the
 process of computing changes is very fast. For best results it should be under
 3 milliseconds in order to leave room for the application logic, the UI updates
-and browser's rendering pipeline to fit withing the 16 millisecond frame
+and browser's rendering pipeline to fit within the 16 millisecond frame
 (assuming the 60 FPS target frame rate).
 
 Change detection profiler repeatedly performs change detection without invoking

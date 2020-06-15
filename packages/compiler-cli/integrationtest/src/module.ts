@@ -1,15 +1,14 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, NgModule} from '@angular/core';
+import {ApplicationRef, forwardRef, NgModule} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {ServerModule} from '@angular/platform-server';
-import {MdButtonModule} from '@angular2-material/button';
 import {FlatModule} from 'flat_module';
 // Note: don't refer to third_party_src as we want to test that
 // we can compile components from node_modules!
@@ -27,6 +26,9 @@ import {CompConsumingEvents, CompUsingPipes, CompWithProviders, CompWithReferenc
 import {CompUsingRootModuleDirectiveAndPipe, SomeDirectiveInRootModule, SomeLibModule, SomePipeInRootModule, SomeService} from './module_fixtures';
 import {CompWithNgContent, ProjectingComp} from './projection';
 import {CompForChildQuery, CompWithChildQuery, CompWithDirectiveChild, DirectiveForQuery} from './queries';
+
+// Adding an export here so that TypeScript compiles the file as well
+export {SomeModule as JitSummariesSomeModule} from './jit_summaries';
 
 @NgModule({
   declarations: [
@@ -57,7 +59,6 @@ import {CompForChildQuery, CompWithChildQuery, CompWithDirectiveChild, Directive
   imports: [
     ServerModule,
     FormsModule,
-    MdButtonModule,
     ModuleUsingCustomElements,
     SomeLibModule.withProviders(),
     ThirdpartyModule,
@@ -65,7 +66,7 @@ import {CompForChildQuery, CompWithChildQuery, CompWithDirectiveChild, Directive
   ],
   providers: [
     SomeService,
-    {provide: CUSTOM, useValue: {name: 'some name'}},
+    {provide: CUSTOM, useValue: forwardRef(() => ({name: 'some name'}))},
   ],
   entryComponents: [
     AnimateCmp,

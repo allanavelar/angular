@@ -1,17 +1,21 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {MissingTranslationStrategy, ɵConsole as Console} from '@angular/core';
+import {MissingTranslationStrategy} from '../core';
 import * as html from '../ml_parser/ast';
 import {HtmlParser} from '../ml_parser/html_parser';
+import {Console} from '../util';
+
 import * as i18n from './i18n_ast';
 import {I18nError} from './parse_util';
 import {PlaceholderMapper, Serializer} from './serializers/serializer';
+import {escapeXml} from './serializers/xml_helper';
+
 
 /**
  * A container for translated messages
@@ -26,7 +30,7 @@ export class TranslationBundle {
       missingTranslationStrategy: MissingTranslationStrategy = MissingTranslationStrategy.Warning,
       console?: Console) {
     this._i18nToHtml = new I18nToHtmlVisitor(
-        _i18nNodesByMsgId, locale, digest, mapperFactory !, missingTranslationStrategy, console);
+        _i18nNodesByMsgId, locale, digest, mapperFactory!, missingTranslationStrategy, console);
   }
 
   // Creates a `TranslationBundle` by parsing the given `content` with the `serializer`.
@@ -36,7 +40,7 @@ export class TranslationBundle {
       console?: Console): TranslationBundle {
     const {locale, i18nNodesByMsgId} = serializer.load(content, url);
     const digestFn = (m: i18n.Message) => serializer.digest(m);
-    const mapperFactory = (m: i18n.Message) => serializer.createNameMapper(m) !;
+    const mapperFactory = (m: i18n.Message) => serializer.createNameMapper(m)!;
     return new TranslationBundle(
         i18nNodesByMsgId, locale, digestFn, mapperFactory, missingTranslationStrategy, console);
   }
@@ -52,14 +56,18 @@ export class TranslationBundle {
     return html.nodes;
   }
 
-  has(srcMsg: i18n.Message): boolean { return this.digest(srcMsg) in this._i18nNodesByMsgId; }
+  has(srcMsg: i18n.Message): boolean {
+    return this.digest(srcMsg) in this._i18nNodesByMsgId;
+  }
 }
 
 class I18nToHtmlVisitor implements i18n.Visitor {
-  private _srcMsg: i18n.Message;
+  // TODO(issue/24571): remove '!'.
+  private _srcMsg!: i18n.Message;
   private _contextStack: {msg: i18n.Message, mapper: (name: string) => string}[] = [];
   private _errors: I18nError[] = [];
-  private _mapper: (name: string) => string;
+  // TODO(issue/24571): remove '!'.
+  private _mapper!: (name: string) => string;
 
   constructor(
       private _i18nNodesByMsgId: {[msgId: string]: i18n.Node[]} = {}, private _locale: string|null,
@@ -77,7 +85,7 @@ class I18nToHtmlVisitor implements i18n.Visitor {
 
     // text to html
     const url = srcMsg.nodes[0].sourceSpan.start.file.url;
-    const html = new HtmlParser().parse(text, url, true);
+    const html = new HtmlParser().parse(text, url, {tokenizeExpansionForms: true});
 
     return {
       nodes: html.rootNodes,
@@ -85,7 +93,11 @@ class I18nToHtmlVisitor implements i18n.Visitor {
     };
   }
 
-  visitText(text: i18n.Text, context?: any): string { return text.value; }
+  visitText(text: i18n.Text, context?: any): string {
+    // `convert()` uses an `HtmlParser` to return `html.Node`s
+    // we should then make sure that any special characters are escaped
+    return escapeXml(text.value);
+  }
 
   visitContainer(container: i18n.Container, context?: any): any {
     return container.children.map(n => n.visit(this)).join('');
@@ -156,7 +168,7 @@ class I18nToHtmlVisitor implements i18n.Visitor {
       // When there is a translation use its nodes as the source
       // And create a mapper to convert serialized placeholder names to internal names
       nodes = this._i18nNodesByMsgId[id];
-      this._mapper = (name: string) => mapper ? mapper.toInternalName(name) ! : name;
+      this._mapper = (name: string) => mapper ? mapper.toInternalName(name)! : name;
     } else {
       // When no translation has been found
       // - report an error / a warning / nothing,
@@ -175,7 +187,7 @@ class I18nToHtmlVisitor implements i18n.Visitor {
       this._mapper = (name: string) => name;
     }
     const text = nodes.map(node => node.visit(this)).join('');
-    const context = this._contextStack.pop() !;
+    const context = this._contextStack.pop()!;
     this._srcMsg = context.msg;
     this._mapper = context.mapper;
     return text;

@@ -1,13 +1,13 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 /**
- * @experimental Animation support is experimental.
+ * @publicApi
  */
 export abstract class AnimationStyleNormalizer {
   abstract normalizePropertyName(propertyName: string, errors: string[]): string;
@@ -17,10 +17,12 @@ export abstract class AnimationStyleNormalizer {
 }
 
 /**
- * @experimental Animation support is experimental.
+ * @publicApi
  */
 export class NoopAnimationStyleNormalizer {
-  normalizePropertyName(propertyName: string, errors: string[]): string { return propertyName; }
+  normalizePropertyName(propertyName: string, errors: string[]): string {
+    return propertyName;
+  }
 
   normalizeStyleValue(
       userProvidedProperty: string, normalizedProperty: string, value: string|number,

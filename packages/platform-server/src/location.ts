@@ -1,22 +1,24 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {LocationChangeEvent, LocationChangeListener, PlatformLocation} from '@angular/common';
+import {DOCUMENT, LocationChangeEvent, LocationChangeListener, PlatformLocation, ɵgetDOM as getDOM} from '@angular/common';
 import {Inject, Injectable, Optional} from '@angular/core';
-import {DOCUMENT, ɵgetDOM as getDOM} from '@angular/platform-browser';
-import {Subject} from 'rxjs/Subject';
+import {Subject} from 'rxjs';
 import * as url from 'url';
 import {INITIAL_CONFIG, PlatformConfig} from './tokens';
 
 
-function parseUrl(urlStr: string): {pathname: string, search: string, hash: string} {
+function parseUrl(urlStr: string) {
   const parsedUrl = url.parse(urlStr);
   return {
+    hostname: parsedUrl.hostname || '',
+    protocol: parsedUrl.protocol || '',
+    port: parsedUrl.port || '',
     pathname: parsedUrl.pathname || '',
     search: parsedUrl.search || '',
     hash: parsedUrl.hash || '',
@@ -29,9 +31,13 @@ function parseUrl(urlStr: string): {pathname: string, search: string, hash: stri
  */
 @Injectable()
 export class ServerPlatformLocation implements PlatformLocation {
-  private _path: string = '/';
-  private _search: string = '';
-  private _hash: string = '';
+  public readonly href: string = '/';
+  public readonly hostname: string = '/';
+  public readonly protocol: string = '/';
+  public readonly port: string = '/';
+  public readonly pathname: string = '/';
+  public readonly search: string = '';
+  public readonly hash: string = '';
   private _hashUpdate = new Subject<LocationChangeEvent>();
 
   constructor(
@@ -39,43 +45,50 @@ export class ServerPlatformLocation implements PlatformLocation {
     const config = _config as PlatformConfig | null;
     if (!!config && !!config.url) {
       const parsedUrl = parseUrl(config.url);
-      this._path = parsedUrl.pathname;
-      this._search = parsedUrl.search;
-      this._hash = parsedUrl.hash;
+      this.hostname = parsedUrl.hostname;
+      this.protocol = parsedUrl.protocol;
+      this.port = parsedUrl.port;
+      this.pathname = parsedUrl.pathname;
+      this.search = parsedUrl.search;
+      this.hash = parsedUrl.hash;
+      this.href = _doc.location.href;
     }
   }
 
-  getBaseHrefFromDOM(): string { return getDOM().getBaseHref(this._doc); }
+  getBaseHrefFromDOM(): string {
+    return getDOM().getBaseHref(this._doc)!;
+  }
 
   onPopState(fn: LocationChangeListener): void {
     // No-op: a state stack is not implemented, so
     // no events will ever come.
   }
 
-  onHashChange(fn: LocationChangeListener): void { this._hashUpdate.subscribe(fn); }
+  onHashChange(fn: LocationChangeListener): void {
+    this._hashUpdate.subscribe(fn);
+  }
 
-  get pathname(): string { return this._path; }
-  get search(): string { return this._search; }
-  get hash(): string { return this._hash; }
-
-  get url(): string { return `${this.pathname}${this.search}${this.hash}`; }
+  get url(): string {
+    return `${this.pathname}${this.search}${this.hash}`;
+  }
 
   private setHash(value: string, oldUrl: string) {
-    if (this._hash === value) {
+    if (this.hash === value) {
       // Don't fire events if the hash has not changed.
       return;
     }
-    this._hash = value;
+    (this as {hash: string}).hash = value;
     const newUrl = this.url;
     scheduleMicroTask(
-        () => this._hashUpdate.next({ type: 'hashchange', oldUrl, newUrl } as LocationChangeEvent));
+        () => this._hashUpdate.next(
+            {type: 'hashchange', state: null, oldUrl, newUrl} as LocationChangeEvent));
   }
 
   replaceState(state: any, title: string, newUrl: string): void {
     const oldUrl = this.url;
     const parsedUrl = parseUrl(newUrl);
-    this._path = parsedUrl.pathname;
-    this._search = parsedUrl.search;
+    (this as {pathname: string}).pathname = parsedUrl.pathname;
+    (this as {search: string}).search = parsedUrl.search;
     this.setHash(parsedUrl.hash, oldUrl);
   }
 
@@ -83,9 +96,18 @@ export class ServerPlatformLocation implements PlatformLocation {
     this.replaceState(state, title, newUrl);
   }
 
-  forward(): void { throw new Error('Not implemented'); }
+  forward(): void {
+    throw new Error('Not implemented');
+  }
 
-  back(): void { throw new Error('Not implemented'); }
+  back(): void {
+    throw new Error('Not implemented');
+  }
+
+  // History API isn't available on server, therefore return undefined
+  getState(): unknown {
+    return undefined;
+  }
 }
 
 export function scheduleMicroTask(fn: Function) {

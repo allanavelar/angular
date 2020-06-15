@@ -1,30 +1,25 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {PipeResolver} from '@angular/compiler';
-import {Compiler, Injectable, Injector, Pipe, Type} from '@angular/core';
+import {CompileReflector, core, PipeResolver} from '@angular/compiler';
 
-@Injectable()
 export class MockPipeResolver extends PipeResolver {
-  private _pipes = new Map<Type<any>, Pipe>();
+  private _pipes = new Map<core.Type, core.Pipe>();
 
-  constructor(private _injector: Injector) { super(); }
-
-  private get _compiler(): Compiler { return this._injector.get(Compiler); }
-
-  private _clearCacheFor(pipe: Type<any>) { this._compiler.clearCacheFor(pipe); }
+  constructor(refector: CompileReflector) {
+    super(refector);
+  }
 
   /**
    * Overrides the {@link Pipe} for a pipe.
    */
-  setPipe(type: Type<any>, metadata: Pipe): void {
+  setPipe(type: core.Type, metadata: core.Pipe): void {
     this._pipes.set(type, metadata);
-    this._clearCacheFor(type);
   }
 
   /**
@@ -33,10 +28,10 @@ export class MockPipeResolver extends PipeResolver {
    * default
    * `PipeResolver`, see `setPipe`.
    */
-  resolve(type: Type<any>, throwIfNotFound = true): Pipe {
+  resolve(type: core.Type, throwIfNotFound = true): core.Pipe {
     let metadata = this._pipes.get(type);
     if (!metadata) {
-      metadata = super.resolve(type, throwIfNotFound) !;
+      metadata = super.resolve(type, throwIfNotFound)!;
     }
     return metadata;
   }

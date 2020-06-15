@@ -1,15 +1,15 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
 import {Component} from '@angular/core';
-import {ComponentFixture, TestBed, async} from '@angular/core/testing';
+import {async, ComponentFixture, TestBed} from '@angular/core/testing';
 
-export function main() {
+{
   describe('binding to CSS class list', () => {
     let fixture: ComponentFixture<any>|null;
 
@@ -18,14 +18,18 @@ export function main() {
     }
 
     function detectChangesAndExpectClassName(classes: string): void {
-      fixture !.detectChanges();
-      let nonNormalizedClassName = fixture !.debugElement.children[0].nativeElement.className;
+      fixture!.detectChanges();
+      let nonNormalizedClassName = fixture!.debugElement.children[0].nativeElement.className;
       expect(normalizeClassNames(nonNormalizedClassName)).toEqual(normalizeClassNames(classes));
     }
 
-    function getComponent(): TestComponent { return fixture !.debugElement.componentInstance; }
+    function getComponent(): TestComponent {
+      return fixture!.debugElement.componentInstance;
+    }
 
-    afterEach(() => { fixture = null; });
+    afterEach(() => {
+      fixture = null;
+    });
 
     beforeEach(() => {
       TestBed.configureTestingModule({
@@ -43,7 +47,6 @@ export function main() {
        }));
 
     describe('expressions evaluating to objects', () => {
-
       it('should add classes specified in an object literal', async(() => {
            fixture = createTestComponent('<div [ngClass]="{foo: true, bar: false}"></div>');
 
@@ -74,13 +77,13 @@ export function main() {
 
            detectChangesAndExpectClassName('foo');
 
-           objExpr !['bar'] = true;
+           objExpr!['bar'] = true;
            detectChangesAndExpectClassName('foo bar');
 
-           objExpr !['baz'] = true;
+           objExpr!['baz'] = true;
            detectChangesAndExpectClassName('foo bar baz');
 
-           delete (objExpr !['bar']);
+           delete (objExpr!['bar']);
            detectChangesAndExpectClassName('foo baz');
          }));
 
@@ -129,7 +132,6 @@ export function main() {
     });
 
     describe('expressions evaluating to lists', () => {
-
       it('should add classes specified in a list literal', async(() => {
            fixture =
                createTestComponent(`<div [ngClass]="['foo', 'bar', 'foo-bar', 'fooBar']"></div>`);
@@ -194,14 +196,13 @@ export function main() {
 
       it('should throw with descriptive error message when CSS class is not a string', () => {
         fixture = createTestComponent(`<div [ngClass]="['foo', {}]"></div>`);
-        expect(() => fixture !.detectChanges())
+        expect(() => fixture!.detectChanges())
             .toThrowError(
                 /NgClass can only toggle CSS classes expressed as strings, got \[object Object\]/);
       });
     });
 
     describe('expressions evaluating to sets', () => {
-
       it('should add and remove classes if the set instance changed', async(() => {
            fixture = createTestComponent('<div [ngClass]="setExpr"></div>');
            let setExpr = new Set<string>();
@@ -217,7 +218,6 @@ export function main() {
     });
 
     describe('expressions evaluating to string', () => {
-
       it('should add classes specified in a string literal', async(() => {
            fixture = createTestComponent(`<div [ngClass]="'foo bar foo-bar fooBar'"></div>`);
            detectChangesAndExpectClassName('foo bar foo-bar fooBar');
@@ -257,19 +257,17 @@ export function main() {
            getComponent().strExpr = '';
            detectChangesAndExpectClassName('foo');
          }));
-
     });
 
     describe('cooperation with other class-changing constructs', () => {
-
       it('should co-operate with the class attribute', async(() => {
            fixture = createTestComponent('<div [ngClass]="objExpr" class="init foo"></div>');
            const objExpr = getComponent().objExpr;
 
-           objExpr !['bar'] = true;
+           objExpr!['bar'] = true;
            detectChangesAndExpectClassName('init foo bar');
 
-           objExpr !['foo'] = false;
+           objExpr!['foo'] = false;
            detectChangesAndExpectClassName('init bar');
 
            getComponent().objExpr = null;
@@ -280,14 +278,25 @@ export function main() {
            fixture = createTestComponent(`<div [ngClass]="objExpr" class="{{'init foo'}}"></div>`);
            const objExpr = getComponent().objExpr;
 
-           objExpr !['bar'] = true;
+           objExpr!['bar'] = true;
            detectChangesAndExpectClassName(`init foo bar`);
 
-           objExpr !['foo'] = false;
+           objExpr!['foo'] = false;
            detectChangesAndExpectClassName(`init bar`);
 
            getComponent().objExpr = null;
            detectChangesAndExpectClassName(`init foo`);
+         }));
+
+      it('should co-operate with the interpolated class attribute when interpolation changes',
+         async(() => {
+           fixture = createTestComponent(
+               `<div [ngClass]="{large: false, small: true}" class="{{strExpr}}"></div>`);
+
+           detectChangesAndExpectClassName(`foo small`);
+
+           getComponent().strExpr = 'bar';
+           detectChangesAndExpectClassName(`bar small`);
          }));
 
       it('should co-operate with the class attribute and binding to it', async(() => {
@@ -295,10 +304,10 @@ export function main() {
                createTestComponent(`<div [ngClass]="objExpr" class="init" [class]="'foo'"></div>`);
            const objExpr = getComponent().objExpr;
 
-           objExpr !['bar'] = true;
+           objExpr!['bar'] = true;
            detectChangesAndExpectClassName(`init foo bar`);
 
-           objExpr !['foo'] = false;
+           objExpr!['foo'] = false;
            detectChangesAndExpectClassName(`init bar`);
 
            getComponent().objExpr = null;
@@ -313,10 +322,10 @@ export function main() {
 
            detectChangesAndExpectClassName('init foo baz');
 
-           objExpr !['bar'] = true;
+           objExpr!['bar'] = true;
            detectChangesAndExpectClassName('init foo baz bar');
 
-           objExpr !['foo'] = false;
+           objExpr!['foo'] = false;
            detectChangesAndExpectClassName('init baz bar');
 
            getComponent().condition = false;
@@ -331,7 +340,7 @@ export function main() {
 
            detectChangesAndExpectClassName('init foo');
 
-           cmp.objExpr !['bar'] = true;
+           cmp.objExpr!['bar'] = true;
            detectChangesAndExpectClassName('init foo bar');
 
            cmp.strExpr = 'baz';
@@ -341,19 +350,61 @@ export function main() {
            detectChangesAndExpectClassName('init baz');
          }));
     });
+
+    describe('prevent regressions', () => {
+      // https://github.com/angular/angular/issues/34336
+      it('should not write to the native node unless the bound expression has changed', () => {
+        fixture = createTestComponent(`<div [ngClass]="{'color-red': condition}"></div>`);
+        detectChangesAndExpectClassName('color-red');
+
+        // Overwrite CSS classes so that we can check if ngClass performed DOM manipulation to
+        // update it
+        fixture.debugElement.children[0].nativeElement.className = '';
+        // Assert that the DOM node still has the same value after change detection
+        detectChangesAndExpectClassName('');
+
+        fixture.componentInstance.condition = false;
+        fixture.detectChanges();
+        fixture.componentInstance.condition = true;
+        detectChangesAndExpectClassName('color-red');
+      });
+
+      it('should allow classes with trailing and leading spaces in [ngClass]', () => {
+        @Component({
+          template: `
+            <div leading-space [ngClass]="{' foo': applyClasses}"></div>
+            <div trailing-space [ngClass]="{'foo ': applyClasses}"></div>
+          `
+        })
+        class Cmp {
+          applyClasses = true;
+        }
+
+        TestBed.configureTestingModule({declarations: [Cmp]});
+        const fixture = TestBed.createComponent(Cmp);
+        fixture.detectChanges();
+
+        const leading = fixture.nativeElement.querySelector('[leading-space]');
+        const trailing = fixture.nativeElement.querySelector('[trailing-space]');
+        expect(leading.className).toBe('foo');
+        expect(trailing.className).toBe('foo');
+      });
+    });
   });
 }
 
 @Component({selector: 'test-cmp', template: ''})
 class TestComponent {
   condition: boolean = true;
-  items: any[];
+  items: any[]|undefined;
   arrExpr: string[] = ['foo'];
   setExpr: Set<string> = new Set<string>();
   objExpr: {[klass: string]: any}|null = {'foo': true, 'bar': false};
   strExpr: string|null = 'foo';
 
-  constructor() { this.setExpr.add('foo'); }
+  constructor() {
+    this.setExpr.add('foo');
+  }
 }
 
 function createTestComponent(template: string): ComponentFixture<TestComponent> {

@@ -1,67 +1,58 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AfterContentChecked, AfterContentInit, AfterViewChecked, AfterViewInit, ChangeDetectorRef, DoCheck, ElementRef, EventEmitter, Injector, OnChanges, OnDestroy, OnInit, RenderComponentType, Renderer, Renderer2, RootRenderer, Sanitizer, SecurityContext, SimpleChange, TemplateRef, ViewContainerRef, ViewEncapsulation, WrappedValue, getDebugNode} from '@angular/core';
+import {ɵgetDOM as getDOM} from '@angular/common';
+import {AfterContentChecked, AfterContentInit, AfterViewChecked, AfterViewInit, ChangeDetectorRef, DoCheck, ElementRef, ErrorHandler, EventEmitter, Injector, OnChanges, OnDestroy, OnInit, Renderer2, SimpleChange, TemplateRef, ViewContainerRef,} from '@angular/core';
 import {getDebugContext} from '@angular/core/src/errors';
-import {ArgumentType, BindingFlags, DebugContext, DepFlags, NodeDef, NodeFlags, RootData, Services, ViewData, ViewDefinition, ViewDefinitionFactory, ViewFlags, ViewHandleEventFn, ViewUpdateFn, anchorDef, asElementData, asProviderData, directiveDef, elementDef, providerDef, rootRenderNodes, textDef, viewDef} from '@angular/core/src/view/index';
-import {TestBed, inject, withModule} from '@angular/core/testing';
-import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
+import {anchorDef, ArgumentType, asElementData, DepFlags, directiveDef, elementDef, NodeFlags, providerDef, Services, textDef} from '@angular/core/src/view/index';
+import {TestBed, withModule} from '@angular/core/testing';
+import {ivyEnabled} from '@angular/private/testing';
 
-import {ARG_TYPE_VALUES, checkNodeInlineOrDynamic, createRootView, isBrowser} from './helper';
+import {ARG_TYPE_VALUES, checkNodeInlineOrDynamic, compViewDef, compViewDefFactory, createAndGetRootNodes, createRootView} from './helper';
 
-export function main() {
+{
   describe(`View Providers`, () => {
-    function compViewDef(
-        nodes: NodeDef[], updateDirectives?: ViewUpdateFn, updateRenderer?: ViewUpdateFn,
-        viewFlags: ViewFlags = ViewFlags.None): ViewDefinition {
-      return viewDef(viewFlags, nodes, updateDirectives, updateRenderer);
-    }
-
-    function embeddedViewDef(nodes: NodeDef[], update?: ViewUpdateFn): ViewDefinitionFactory {
-      return () => viewDef(ViewFlags.None, nodes, update);
-    }
-
-    function createAndGetRootNodes(viewDef: ViewDefinition): {rootNodes: any[], view: ViewData} {
-      const view = createRootView(viewDef, {});
-      const rootNodes = rootRenderNodes(view);
-      return {rootNodes, view};
-    }
-
     describe('create', () => {
       let instance: SomeService;
 
       class SomeService {
-        constructor(public dep: any) { instance = this; }
+        constructor(public dep: any) {
+          instance = this;
+        }
       }
 
-      beforeEach(() => { instance = null !; });
+      beforeEach(() => {
+        instance = null!;
+      });
 
       it('should create providers eagerly', () => {
         createAndGetRootNodes(compViewDef([
-          elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-          directiveDef(NodeFlags.None, null !, 0, SomeService, [])
+          elementDef(0, NodeFlags.None, null, null, 1, 'span'),
+          directiveDef(1, NodeFlags.None, null, 0, SomeService, [])
         ]));
 
         expect(instance instanceof SomeService).toBe(true);
       });
 
       it('should create providers lazily', () => {
-        let lazy: LazyService = undefined !;
+        let lazy: LazyService = undefined!;
         class LazyService {
-          constructor() { lazy = this; }
+          constructor() {
+            lazy = this;
+          }
         }
 
         createAndGetRootNodes(compViewDef([
-          elementDef(NodeFlags.None, null !, null !, 2, 'span'),
+          elementDef(0, NodeFlags.None, null, null, 2, 'span'),
           providerDef(
-              NodeFlags.TypeClassProvider | NodeFlags.LazyProvider, null !, LazyService,
-              LazyService, []),
-          directiveDef(NodeFlags.None, null !, 0, SomeService, [Injector])
+              NodeFlags.TypeClassProvider | NodeFlags.LazyProvider, null, LazyService, LazyService,
+              []),
+          directiveDef(2, NodeFlags.None, null, 0, SomeService, [Injector])
         ]));
 
         expect(lazy).toBeUndefined();
@@ -71,21 +62,23 @@ export function main() {
 
       it('should create value providers', () => {
         createAndGetRootNodes(compViewDef([
-          elementDef(NodeFlags.None, null !, null !, 2, 'span'),
-          providerDef(NodeFlags.TypeValueProvider, null !, 'someToken', 'someValue', []),
-          directiveDef(NodeFlags.None, null !, 0, SomeService, ['someToken']),
+          elementDef(0, NodeFlags.None, null, null, 2, 'span'),
+          providerDef(NodeFlags.TypeValueProvider, null, 'someToken', 'someValue', []),
+          directiveDef(2, NodeFlags.None, null, 0, SomeService, ['someToken']),
         ]));
 
         expect(instance.dep).toBe('someValue');
       });
 
       it('should create factory providers', () => {
-        function someFactory() { return 'someValue'; }
+        function someFactory() {
+          return 'someValue';
+        }
 
         createAndGetRootNodes(compViewDef([
-          elementDef(NodeFlags.None, null !, null !, 2, 'span'),
-          providerDef(NodeFlags.TypeFactoryProvider, null !, 'someToken', someFactory, []),
-          directiveDef(NodeFlags.None, null !, 0, SomeService, ['someToken']),
+          elementDef(0, NodeFlags.None, null, null, 2, 'span'),
+          providerDef(NodeFlags.TypeFactoryProvider, null, 'someToken', someFactory, []),
+          directiveDef(2, NodeFlags.None, null, 0, SomeService, ['someToken']),
         ]));
 
         expect(instance.dep).toBe('someValue');
@@ -93,12 +86,11 @@ export function main() {
 
       it('should create useExisting providers', () => {
         createAndGetRootNodes(compViewDef([
-          elementDef(NodeFlags.None, null !, null !, 3, 'span'),
-          providerDef(NodeFlags.TypeValueProvider, null !, 'someExistingToken', 'someValue', []),
+          elementDef(0, NodeFlags.None, null, null, 3, 'span'),
+          providerDef(NodeFlags.TypeValueProvider, null, 'someExistingToken', 'someValue', []),
           providerDef(
-              NodeFlags.TypeUseExistingProvider, null !, 'someToken', null !,
-              ['someExistingToken']),
-          directiveDef(NodeFlags.None, null !, 0, SomeService, ['someToken']),
+              NodeFlags.TypeUseExistingProvider, null, 'someToken', null, ['someExistingToken']),
+          directiveDef(3, NodeFlags.None, null, 0, SomeService, ['someToken']),
         ]));
 
         expect(instance.dep).toBe('someValue');
@@ -106,7 +98,9 @@ export function main() {
 
       it('should add a DebugContext to errors in provider factories', () => {
         class SomeService {
-          constructor() { throw new Error('Test'); }
+          constructor() {
+            throw new Error('Test');
+          }
         }
 
         let err: any;
@@ -114,11 +108,11 @@ export function main() {
           createRootView(
               compViewDef([
                 elementDef(
-                    NodeFlags.None, null !, null !, 1, 'div', null !, null !, null !, null !,
-                    () => compViewDef([textDef(null !, ['a'])])),
-                directiveDef(NodeFlags.Component, null !, 0, SomeService, [])
+                    0, NodeFlags.None, null, null, 1, 'div', null, null, null, null,
+                    () => compViewDef([textDef(0, null, ['a'])])),
+                directiveDef(1, NodeFlags.Component, null, 0, SomeService, [])
               ]),
-              TestBed.get(Injector), [], getDOM().createElement('div'));
+              TestBed.inject(Injector), [], getDOM().createElement('div'));
         } catch (e) {
           err = e;
         }
@@ -134,9 +128,9 @@ export function main() {
 
         it('should inject deps from the same element', () => {
           createAndGetRootNodes(compViewDef([
-            elementDef(NodeFlags.None, null !, null !, 2, 'span'),
-            directiveDef(NodeFlags.None, null !, 0, Dep, []),
-            directiveDef(NodeFlags.None, null !, 0, SomeService, [Dep])
+            elementDef(0, NodeFlags.None, null, null, 2, 'span'),
+            directiveDef(1, NodeFlags.None, null, 0, Dep, []),
+            directiveDef(2, NodeFlags.None, null, 0, SomeService, [Dep])
           ]));
 
           expect(instance.dep instanceof Dep).toBeTruthy();
@@ -144,43 +138,59 @@ export function main() {
 
         it('should inject deps from a parent element', () => {
           createAndGetRootNodes(compViewDef([
-            elementDef(NodeFlags.None, null !, null !, 3, 'span'),
-            directiveDef(NodeFlags.None, null !, 0, Dep, []),
-            elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-            directiveDef(NodeFlags.None, null !, 0, SomeService, [Dep])
+            elementDef(0, NodeFlags.None, null, null, 3, 'span'),
+            directiveDef(1, NodeFlags.None, null, 0, Dep, []),
+            elementDef(2, NodeFlags.None, null, null, 1, 'span'),
+            directiveDef(3, NodeFlags.None, null, 0, SomeService, [Dep])
           ]));
 
           expect(instance.dep instanceof Dep).toBeTruthy();
         });
 
         it('should not inject deps from sibling root elements', () => {
-          const nodes = [
-            elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-            directiveDef(NodeFlags.None, null !, 0, Dep, []),
-            elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-            directiveDef(NodeFlags.None, null !, 0, SomeService, [Dep])
+          const rootElNodes = [
+            elementDef(0, NodeFlags.None, null, null, 1, 'span'),
+            directiveDef(1, NodeFlags.None, null, 0, Dep, []),
+            elementDef(2, NodeFlags.None, null, null, 1, 'span'),
+            directiveDef(3, NodeFlags.None, null, 0, SomeService, [Dep]),
           ];
 
-          // root elements
-          expect(() => createAndGetRootNodes(compViewDef(nodes)))
-              .toThrowError('No provider for Dep!');
+          expect(() => createAndGetRootNodes(compViewDef(rootElNodes)))
+              .toThrowError(
+                  `${
+                      ivyEnabled ?
+                          'R3InjectorError' :
+                          'StaticInjectorError'}(DynamicTestModule)[SomeService -> Dep]: \n` +
+                  '  StaticInjectorError(Platform: core)[SomeService -> Dep]: \n' +
+                  '    NullInjectorError: No provider for Dep!');
 
-          // non root elements
-          expect(
-              () => createAndGetRootNodes(compViewDef(
-                  [elementDef(NodeFlags.None, null !, null !, 4, 'span')].concat(nodes))))
-              .toThrowError('No provider for Dep!');
+          const nonRootElNodes = [
+            elementDef(0, NodeFlags.None, null, null, 4, 'span'),
+            elementDef(1, NodeFlags.None, null, null, 1, 'span'),
+            directiveDef(2, NodeFlags.None, null, 0, Dep, []),
+            elementDef(3, NodeFlags.None, null, null, 1, 'span'),
+            directiveDef(4, NodeFlags.None, null, 0, SomeService, [Dep]),
+          ];
+
+          expect(() => createAndGetRootNodes(compViewDef(nonRootElNodes)))
+              .toThrowError(
+                  `${
+                      ivyEnabled ?
+                          'R3InjectorError' :
+                          'StaticInjectorError'}(DynamicTestModule)[SomeService -> Dep]: \n` +
+                  '  StaticInjectorError(Platform: core)[SomeService -> Dep]: \n' +
+                  '    NullInjectorError: No provider for Dep!');
         });
 
-        it('should inject from a parent elment in a parent view', () => {
+        it('should inject from a parent element in a parent view', () => {
           createAndGetRootNodes(compViewDef([
             elementDef(
-                NodeFlags.None, null !, null !, 1, 'div', null !, null !, null !, null !,
+                0, NodeFlags.None, null, null, 1, 'div', null, null, null, null,
                 () => compViewDef([
-                  elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-                  directiveDef(NodeFlags.None, null !, 0, SomeService, [Dep])
+                  elementDef(0, NodeFlags.None, null, null, 1, 'span'),
+                  directiveDef(1, NodeFlags.None, null, 0, SomeService, [Dep])
                 ])),
-            directiveDef(NodeFlags.Component, null !, 0, Dep, []),
+            directiveDef(1, NodeFlags.Component, null, 0, Dep, []),
           ]));
 
           expect(instance.dep instanceof Dep).toBeTruthy();
@@ -188,29 +198,34 @@ export function main() {
 
         it('should throw for missing dependencies', () => {
           expect(() => createAndGetRootNodes(compViewDef([
-                   elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-                   directiveDef(NodeFlags.None, null !, 0, SomeService, ['nonExistingDep'])
+                   elementDef(0, NodeFlags.None, null, null, 1, 'span'),
+                   directiveDef(1, NodeFlags.None, null, 0, SomeService, ['nonExistingDep'])
                  ])))
-              .toThrowError('No provider for nonExistingDep!');
+              .toThrowError(
+                  `${
+                      ivyEnabled ? 'R3InjectorError' :
+                                   'StaticInjectorError'}(DynamicTestModule)[nonExistingDep]: \n` +
+                  '  StaticInjectorError(Platform: core)[nonExistingDep]: \n' +
+                  '    NullInjectorError: No provider for nonExistingDep!');
         });
 
         it('should use null for optional missing dependencies', () => {
           createAndGetRootNodes(compViewDef([
-            elementDef(NodeFlags.None, null !, null !, 1, 'span'),
+            elementDef(0, NodeFlags.None, null, null, 1, 'span'),
             directiveDef(
-                NodeFlags.None, null !, 0, SomeService, [[DepFlags.Optional, 'nonExistingDep']])
+                1, NodeFlags.None, null, 0, SomeService, [[DepFlags.Optional, 'nonExistingDep']])
           ]));
           expect(instance.dep).toBe(null);
         });
 
         it('should skip the current element when using SkipSelf', () => {
           createAndGetRootNodes(compViewDef([
-            elementDef(NodeFlags.None, null !, null !, 4, 'span'),
-            providerDef(NodeFlags.TypeValueProvider, null !, 'someToken', 'someParentValue', []),
-            elementDef(NodeFlags.None, null !, null !, 2, 'span'),
-            providerDef(NodeFlags.TypeValueProvider, null !, 'someToken', 'someValue', []),
+            elementDef(0, NodeFlags.None, null, null, 4, 'span'),
+            providerDef(NodeFlags.TypeValueProvider, null, 'someToken', 'someParentValue', []),
+            elementDef(2, NodeFlags.None, null, null, 2, 'span'),
+            providerDef(NodeFlags.TypeValueProvider, null, 'someToken', 'someValue', []),
             directiveDef(
-                NodeFlags.None, null !, 0, SomeService, [[DepFlags.SkipSelf, 'someToken']])
+                4, NodeFlags.None, null, 0, SomeService, [[DepFlags.SkipSelf, 'someToken']])
           ]));
           expect(instance.dep).toBe('someParentValue');
         });
@@ -218,8 +233,8 @@ export function main() {
         it('should ask the root injector',
            withModule({providers: [{provide: 'rootDep', useValue: 'rootValue'}]}, () => {
              createAndGetRootNodes(compViewDef([
-               elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-               directiveDef(NodeFlags.None, null !, 0, SomeService, ['rootDep'])
+               elementDef(0, NodeFlags.None, null, null, 1, 'span'),
+               directiveDef(1, NodeFlags.None, null, 0, SomeService, ['rootDep'])
              ]));
 
              expect(instance.dep).toBe('rootValue');
@@ -228,8 +243,8 @@ export function main() {
         describe('builtin tokens', () => {
           it('should inject ViewContainerRef', () => {
             createAndGetRootNodes(compViewDef([
-              anchorDef(NodeFlags.EmbeddedViews, null !, null !, 1),
-              directiveDef(NodeFlags.None, null !, 0, SomeService, [ViewContainerRef])
+              anchorDef(NodeFlags.EmbeddedViews, null, null, 1),
+              directiveDef(1, NodeFlags.None, null, 0, SomeService, [ViewContainerRef]),
             ]));
 
             expect(instance.dep.createEmbeddedView).toBeTruthy();
@@ -237,10 +252,9 @@ export function main() {
 
           it('should inject TemplateRef', () => {
             createAndGetRootNodes(compViewDef([
-              anchorDef(
-                  NodeFlags.None, null !, null !, 1, null !,
-                  embeddedViewDef([anchorDef(NodeFlags.None, null !, null !, 0)])),
-              directiveDef(NodeFlags.None, null !, 0, SomeService, [TemplateRef])
+              anchorDef(NodeFlags.None, null, null, 1, null, compViewDefFactory([anchorDef(
+                                                                 NodeFlags.None, null, null, 0)])),
+              directiveDef(1, NodeFlags.None, null, 0, SomeService, [TemplateRef]),
             ]));
 
             expect(instance.dep.createEmbeddedView).toBeTruthy();
@@ -248,8 +262,8 @@ export function main() {
 
           it('should inject ElementRef', () => {
             const {view} = createAndGetRootNodes(compViewDef([
-              elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-              directiveDef(NodeFlags.None, null !, 0, SomeService, [ElementRef])
+              elementDef(0, NodeFlags.None, null, null, 1, 'span'),
+              directiveDef(1, NodeFlags.None, null, 0, SomeService, [ElementRef]),
             ]));
 
             expect(instance.dep.nativeElement).toBe(asElementData(view, 0).renderElement);
@@ -257,8 +271,8 @@ export function main() {
 
           it('should inject Injector', () => {
             const {view} = createAndGetRootNodes(compViewDef([
-              elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-              directiveDef(NodeFlags.None, null !, 0, SomeService, [Injector])
+              elementDef(0, NodeFlags.None, null, null, 1, 'span'),
+              directiveDef(1, NodeFlags.None, null, 0, SomeService, [Injector]),
             ]));
 
             expect(instance.dep.get(SomeService)).toBe(instance);
@@ -266,8 +280,8 @@ export function main() {
 
           it('should inject ChangeDetectorRef for non component providers', () => {
             const {view} = createAndGetRootNodes(compViewDef([
-              elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-              directiveDef(NodeFlags.None, null !, 0, SomeService, [ChangeDetectorRef])
+              elementDef(0, NodeFlags.None, null, null, 1, 'span'),
+              directiveDef(1, NodeFlags.None, null, 0, SomeService, [ChangeDetectorRef])
             ]));
 
             expect(instance.dep._view).toBe(view);
@@ -276,61 +290,49 @@ export function main() {
           it('should inject ChangeDetectorRef for component providers', () => {
             const {view, rootNodes} = createAndGetRootNodes(compViewDef([
               elementDef(
-                  NodeFlags.None, null !, null !, 1, 'div', null !, null !, null !, null !,
+                  0, NodeFlags.None, null, null, 1, 'div', null, null, null, null,
                   () => compViewDef([
-                    elementDef(NodeFlags.None, null !, null !, 0, 'span'),
+                    elementDef(0, NodeFlags.None, null, null, 0, 'span'),
                   ])),
-              directiveDef(NodeFlags.Component, null !, 0, SomeService, [ChangeDetectorRef]),
+              directiveDef(1, NodeFlags.Component, null, 0, SomeService, [ChangeDetectorRef]),
             ]));
 
             const compView = asElementData(view, 0).componentView;
             expect(instance.dep._view).toBe(compView);
           });
 
-          it('should inject RendererV1', () => {
-            createAndGetRootNodes(compViewDef([
-              elementDef(
-                  NodeFlags.None, null !, null !, 1, 'span', null !, null !, null !, null !,
-                  () => compViewDef([anchorDef(NodeFlags.None, null !, null !, 0)])),
-              directiveDef(NodeFlags.Component, null !, 0, SomeService, [Renderer])
-            ]));
-
-            expect(instance.dep.createElement).toBeTruthy();
-          });
-
           it('should inject Renderer2', () => {
             createAndGetRootNodes(compViewDef([
               elementDef(
-                  NodeFlags.None, null !, null !, 1, 'span', null !, null !, null !, null !,
-                  () => compViewDef([anchorDef(NodeFlags.None, null !, null !, 0)])),
-              directiveDef(NodeFlags.Component, null !, 0, SomeService, [Renderer2])
+                  0, NodeFlags.None, null, null, 1, 'span', null, null, null, null,
+                  () => compViewDef([anchorDef(NodeFlags.None, null, null, 0)])),
+              directiveDef(1, NodeFlags.Component, null, 0, SomeService, [Renderer2])
             ]));
 
             expect(instance.dep.createElement).toBeTruthy();
           });
-
         });
-
       });
     });
 
     describe('data binding', () => {
-
       ARG_TYPE_VALUES.forEach((inlineDynamic) => {
         it(`should update via strategy ${inlineDynamic}`, () => {
-          let instance: SomeService = undefined !;
+          let instance: SomeService = undefined!;
 
           class SomeService {
             a: any;
             b: any;
-            constructor() { instance = this; }
+            constructor() {
+              instance = this;
+            }
           }
 
           const {view, rootNodes} = createAndGetRootNodes(compViewDef(
               [
-                elementDef(NodeFlags.None, null !, null !, 1, 'span'),
+                elementDef(0, NodeFlags.None, null, null, 1, 'span'),
                 directiveDef(
-                    NodeFlags.None, null !, 0, SomeService, [], {a: [0, 'a'], b: [1, 'b']})
+                    1, NodeFlags.None, null, 0, SomeService, [], {a: [0, 'a'], b: [1, 'b']})
               ],
               (check, view) => {
                 checkNodeInlineOrDynamic(check, view, 1, inlineDynamic, ['v1', 'v2']);
@@ -342,9 +344,8 @@ export function main() {
           expect(instance.b).toBe('v2');
 
           const el = rootNodes[0];
-          expect(getDOM().getAttribute(el, 'ng-reflect-a')).toBe('v1');
+          expect(el.getAttribute('ng-reflect-a')).toBe('v1');
         });
-
       });
     });
 
@@ -364,13 +365,11 @@ export function main() {
         }
 
         const handleEvent = jasmine.createSpy('handleEvent');
-        const subscribe = spyOn(emitter, 'subscribe').and.callThrough();
 
         const {view, rootNodes} = createAndGetRootNodes(compViewDef([
-          elementDef(
-              NodeFlags.None, null !, null !, 1, 'span', null !, null !, null !, handleEvent),
+          elementDef(0, NodeFlags.None, null, null, 1, 'span', null, null, null, handleEvent),
           directiveDef(
-              NodeFlags.None, null !, 0, SomeService, [], null !, {emitter: 'someEventName'})
+              1, NodeFlags.None, null, 0, SomeService, [], null, {emitter: 'someEventName'})
         ]));
 
         emitter.emit('someEventInstance');
@@ -381,6 +380,7 @@ export function main() {
       });
 
       it('should report debug info on event errors', () => {
+        const handleErrorSpy = spyOn(TestBed.inject(ErrorHandler), 'handleError');
         let emitter = new EventEmitter<any>();
 
         class SomeService {
@@ -389,18 +389,16 @@ export function main() {
 
         const {view, rootNodes} = createAndGetRootNodes(compViewDef([
           elementDef(
-              NodeFlags.None, null !, null !, 1, 'span', null !, null !, null !,
-              () => { throw new Error('Test'); }),
+              0, NodeFlags.None, null, null, 1, 'span', null, null, null,
+              () => {
+                throw new Error('Test');
+              }),
           directiveDef(
-              NodeFlags.None, null !, 0, SomeService, [], null !, {emitter: 'someEventName'})
+              1, NodeFlags.None, null, 0, SomeService, [], null, {emitter: 'someEventName'})
         ]));
 
-        let err: any;
-        try {
-          emitter.emit('someEventInstance');
-        } catch (e) {
-          err = e;
-        }
+        emitter.emit('someEventInstance');
+        const err = handleErrorSpy.calls.mostRecent().args[0];
         expect(err).toBeTruthy();
         const debugCtx = getDebugContext(err);
         expect(debugCtx.view).toBe(view);
@@ -415,18 +413,37 @@ export function main() {
         let log: string[] = [];
 
         class SomeService implements OnInit, DoCheck, OnChanges, AfterContentInit,
-            AfterContentChecked, AfterViewInit, AfterViewChecked, OnDestroy {
+                                     AfterContentChecked, AfterViewInit, AfterViewChecked,
+                                     OnDestroy {
           id: number;
           a: any;
-          ngOnInit() { log.push(`${this.id}_ngOnInit`); }
-          ngDoCheck() { log.push(`${this.id}_ngDoCheck`); }
-          ngOnChanges() { log.push(`${this.id}_ngOnChanges`); }
-          ngAfterContentInit() { log.push(`${this.id}_ngAfterContentInit`); }
-          ngAfterContentChecked() { log.push(`${this.id}_ngAfterContentChecked`); }
-          ngAfterViewInit() { log.push(`${this.id}_ngAfterViewInit`); }
-          ngAfterViewChecked() { log.push(`${this.id}_ngAfterViewChecked`); }
-          ngOnDestroy() { log.push(`${this.id}_ngOnDestroy`); }
-          constructor() { this.id = instanceCount++; }
+          ngOnInit() {
+            log.push(`${this.id}_ngOnInit`);
+          }
+          ngDoCheck() {
+            log.push(`${this.id}_ngDoCheck`);
+          }
+          ngOnChanges() {
+            log.push(`${this.id}_ngOnChanges`);
+          }
+          ngAfterContentInit() {
+            log.push(`${this.id}_ngAfterContentInit`);
+          }
+          ngAfterContentChecked() {
+            log.push(`${this.id}_ngAfterContentChecked`);
+          }
+          ngAfterViewInit() {
+            log.push(`${this.id}_ngAfterViewInit`);
+          }
+          ngAfterViewChecked() {
+            log.push(`${this.id}_ngAfterViewChecked`);
+          }
+          ngOnDestroy() {
+            log.push(`${this.id}_ngOnDestroy`);
+          }
+          constructor() {
+            this.id = instanceCount++;
+          }
         }
 
         const allFlags = NodeFlags.OnInit | NodeFlags.DoCheck | NodeFlags.OnChanges |
@@ -434,10 +451,10 @@ export function main() {
             NodeFlags.AfterViewChecked | NodeFlags.OnDestroy;
         const {view, rootNodes} = createAndGetRootNodes(compViewDef(
             [
-              elementDef(NodeFlags.None, null !, null !, 3, 'span'),
-              directiveDef(allFlags, null !, 0, SomeService, [], {a: [0, 'a']}),
-              elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-              directiveDef(allFlags, null !, 0, SomeService, [], {a: [0, 'a']})
+              elementDef(0, NodeFlags.None, null, null, 3, 'span'),
+              directiveDef(1, allFlags, null, 0, SomeService, [], {a: [0, 'a']}),
+              elementDef(2, NodeFlags.None, null, null, 1, 'span'),
+              directiveDef(3, allFlags, null, 0, SomeService, [], {a: [0, 'a']})
             ],
             (check, view) => {
               check(view, 1, ArgumentType.Inline, 'someValue');
@@ -493,11 +510,13 @@ export function main() {
 
         const {view, rootNodes} = createAndGetRootNodes(compViewDef(
             [
-              elementDef(NodeFlags.None, null !, null !, 1, 'span'),
+              elementDef(0, NodeFlags.None, null, null, 1, 'span'),
               directiveDef(
-                  NodeFlags.OnChanges, null !, 0, SomeService, [], {a: [0, 'nonMinifiedA']})
+                  1, NodeFlags.OnChanges, null, 0, SomeService, [], {a: [0, 'nonMinifiedA']})
             ],
-            (check, view) => { check(view, 1, ArgumentType.Inline, currValue); }));
+            (check, view) => {
+              check(view, 1, ArgumentType.Inline, currValue);
+            }));
 
         Services.checkAndUpdateView(view);
         expect(changesLog).toEqual([new SimpleChange(undefined, 'v1', true)]);
@@ -510,12 +529,14 @@ export function main() {
 
       it('should add a DebugContext to errors in provider afterXXX lifecycles', () => {
         class SomeService implements AfterContentChecked {
-          ngAfterContentChecked() { throw new Error('Test'); }
+          ngAfterContentChecked() {
+            throw new Error('Test');
+          }
         }
 
         const {view, rootNodes} = createAndGetRootNodes(compViewDef([
-          elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-          directiveDef(NodeFlags.AfterContentChecked, null !, 0, SomeService, [], {a: [0, 'a']}),
+          elementDef(0, NodeFlags.None, null, null, 1, 'span'),
+          directiveDef(1, NodeFlags.AfterContentChecked, null, 0, SomeService, [], {a: [0, 'a']}),
         ]));
 
         let err: any;
@@ -533,12 +554,14 @@ export function main() {
 
       it('should add a DebugContext to errors inServices.destroyView', () => {
         class SomeService implements OnDestroy {
-          ngOnDestroy() { throw new Error('Test'); }
+          ngOnDestroy() {
+            throw new Error('Test');
+          }
         }
 
         const {view, rootNodes} = createAndGetRootNodes(compViewDef([
-          elementDef(NodeFlags.None, null !, null !, 1, 'span'),
-          directiveDef(NodeFlags.OnDestroy, null !, 0, SomeService, [], {a: [0, 'a']}),
+          elementDef(0, NodeFlags.None, null, null, 1, 'span'),
+          directiveDef(1, NodeFlags.OnDestroy, null, 0, SomeService, [], {a: [0, 'a']}),
         ]));
 
         let err: any;

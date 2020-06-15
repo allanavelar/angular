@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -11,22 +11,33 @@ import {Form} from './form_interface';
 
 
 /**
- * A directive that contains multiple {@link NgControl}s.
- *
+ * @description
+ * A base class for directives that contain multiple registered instances of `NgControl`.
  * Only used by the forms module.
  *
- * @stable
+ * @publicApi
  */
-export class ControlContainer extends AbstractControlDirective {
-  name: string;
+export abstract class ControlContainer extends AbstractControlDirective {
+  /**
+   * @description
+   * The name for the control
+   */
+  // TODO(issue/24571): remove '!'.
+  name!: string|number|null;
 
   /**
-   * Get the form to which this container belongs.
+   * @description
+   * The top-level form directive for the control.
    */
-  get formDirective(): Form { return null; }
+  get formDirective(): Form|null {
+    return null;
+  }
 
   /**
-   * Get the path to this container.
+   * @description
+   * The path to this group.
    */
-  get path(): string[] { return null; }
+  get path(): string[]|null {
+    return null;
+  }
 }

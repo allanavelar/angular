@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -9,17 +9,17 @@
 import {Location, LocationStrategy} from '@angular/common';
 import {MockLocationStrategy, SpyLocation} from '@angular/common/testing';
 import {Compiler, Injectable, Injector, ModuleWithProviders, NgModule, NgModuleFactory, NgModuleFactoryLoader, Optional} from '@angular/core';
-import {NoPreloading, PreloadingStrategy, ROUTES, Route, Router, RouterModule, RouterOutletMap, Routes, UrlHandlingStrategy, UrlSerializer, provideRoutes, ɵROUTER_PROVIDERS as ROUTER_PROVIDERS, ɵflatten as flatten} from '@angular/router';
+import {ChildrenOutletContexts, ExtraOptions, NoPreloading, PreloadingStrategy, provideRoutes, Route, Router, ROUTER_CONFIGURATION, RouterModule, ROUTES, Routes, UrlHandlingStrategy, UrlSerializer, ɵflatten as flatten, ɵROUTER_PROVIDERS as ROUTER_PROVIDERS} from '@angular/router';
 
 
 
 /**
- * @whatItDoes Allows to simulate the loading of ng modules in tests.
+ * @description
  *
- * @howToUse
+ * Allows to simulate the loading of ng modules in tests.
  *
  * ```
- * const loader = TestBed.get(NgModuleFactoryLoader);
+ * const loader = TestBed.inject(NgModuleFactoryLoader);
  *
  * @Component({template: 'lazy-loaded'})
  * class LazyLoadedComponent {}
@@ -40,7 +40,7 @@ import {NoPreloading, PreloadingStrategy, ROUTES, Route, Router, RouterModule, R
  * router.navigateByUrl('/lazy/loaded');
  * ```
  *
- * @stable
+ * @publicApi
  */
 @Injectable()
 export class SpyNgModuleFactoryLoader implements NgModuleFactoryLoader {
@@ -63,7 +63,9 @@ export class SpyNgModuleFactoryLoader implements NgModuleFactoryLoader {
   /**
    * @docsNotRequired
    */
-  get stubbedModules(): {[path: string]: any} { return this._stubbedModules; }
+  get stubbedModules(): {[path: string]: any} {
+    return this._stubbedModules;
+  }
 
   constructor(private compiler: Compiler) {}
 
@@ -76,17 +78,63 @@ export class SpyNgModuleFactoryLoader implements NgModuleFactoryLoader {
   }
 }
 
+function isUrlHandlingStrategy(opts: ExtraOptions|
+                               UrlHandlingStrategy): opts is UrlHandlingStrategy {
+  // This property check is needed because UrlHandlingStrategy is an interface and doesn't exist at
+  // runtime.
+  return 'shouldProcessUrl' in opts;
+}
+
 /**
  * Router setup factory function used for testing.
  *
- * @stable
+ * @publicApi
  */
 export function setupTestingRouter(
-    urlSerializer: UrlSerializer, outletMap: RouterOutletMap, location: Location,
+    urlSerializer: UrlSerializer, contexts: ChildrenOutletContexts, location: Location,
     loader: NgModuleFactoryLoader, compiler: Compiler, injector: Injector, routes: Route[][],
-    urlHandlingStrategy?: UrlHandlingStrategy) {
+    opts?: ExtraOptions, urlHandlingStrategy?: UrlHandlingStrategy): Router;
+
+/**
+ * Router setup factory function used for testing.
+ *
+ * @deprecated As of v5.2. The 2nd-to-last argument should be `ExtraOptions`, not
+ * `UrlHandlingStrategy`
+ * @publicApi
+ */
+export function setupTestingRouter(
+    urlSerializer: UrlSerializer, contexts: ChildrenOutletContexts, location: Location,
+    loader: NgModuleFactoryLoader, compiler: Compiler, injector: Injector, routes: Route[][],
+    urlHandlingStrategy?: UrlHandlingStrategy): Router;
+
+/**
+ * Router setup factory function used for testing.
+ *
+ * @publicApi
+ */
+export function setupTestingRouter(
+    urlSerializer: UrlSerializer, contexts: ChildrenOutletContexts, location: Location,
+    loader: NgModuleFactoryLoader, compiler: Compiler, injector: Injector, routes: Route[][],
+    opts?: ExtraOptions|UrlHandlingStrategy, urlHandlingStrategy?: UrlHandlingStrategy) {
   const router = new Router(
-      null, urlSerializer, outletMap, location, injector, loader, compiler, flatten(routes));
+      null!, urlSerializer, contexts, location, injector, loader, compiler, flatten(routes));
+  if (opts) {
+    // Handle deprecated argument ordering.
+    if (isUrlHandlingStrategy(opts)) {
+      router.urlHandlingStrategy = opts;
+    } else {
+      // Handle ExtraOptions
+
+      if (opts.malformedUriErrorHandler) {
+        router.malformedUriErrorHandler = opts.malformedUriErrorHandler;
+      }
+
+      if (opts.paramsInheritanceStrategy) {
+        router.paramsInheritanceStrategy = opts.paramsInheritanceStrategy;
+      }
+    }
+  }
+
   if (urlHandlingStrategy) {
     router.urlHandlingStrategy = urlHandlingStrategy;
   }
@@ -94,29 +142,30 @@ export function setupTestingRouter(
 }
 
 /**
- * @whatItDoes Sets up the router to be used for testing.
+ * @description
  *
- * @howToUse
+ * Sets up the router to be used for testing.
+ *
+ * The modules sets up the router to be used for testing.
+ * It provides spy implementations of `Location`, `LocationStrategy`, and {@link
+ * NgModuleFactoryLoader}.
+ *
+ * @usageNotes
+ * ### Example
  *
  * ```
  * beforeEach(() => {
- *   TestBed.configureTestModule({
+ *   TestBed.configureTestingModule({
  *     imports: [
  *       RouterTestingModule.withRoutes(
- *         [{path: '', component: BlankCmp}, {path: 'simple', component: SimpleCmp}])]
+ *         [{path: '', component: BlankCmp}, {path: 'simple', component: SimpleCmp}]
  *       )
  *     ]
  *   });
  * });
  * ```
  *
- * @description
- *
- * The modules sets up the router to be used for testing.
- * It provides spy implementations of {@link Location}, {@link LocationStrategy}, and {@link
- * NgModuleFactoryLoader}.
- *
- * @stable
+ * @publicApi
  */
 @NgModule({
   exports: [RouterModule],
@@ -127,15 +176,22 @@ export function setupTestingRouter(
       provide: Router,
       useFactory: setupTestingRouter,
       deps: [
-        UrlSerializer, RouterOutletMap, Location, NgModuleFactoryLoader, Compiler, Injector, ROUTES,
-        [UrlHandlingStrategy, new Optional()]
+        UrlSerializer, ChildrenOutletContexts, Location, NgModuleFactoryLoader, Compiler, Injector,
+        ROUTES, ROUTER_CONFIGURATION, [UrlHandlingStrategy, new Optional()]
       ]
     },
     {provide: PreloadingStrategy, useExisting: NoPreloading}, provideRoutes([])
   ]
 })
 export class RouterTestingModule {
-  static withRoutes(routes: Routes): ModuleWithProviders {
-    return {ngModule: RouterTestingModule, providers: [provideRoutes(routes)]};
+  static withRoutes(routes: Routes, config?: ExtraOptions):
+      ModuleWithProviders<RouterTestingModule> {
+    return {
+      ngModule: RouterTestingModule,
+      providers: [
+        provideRoutes(routes),
+        {provide: ROUTER_CONFIGURATION, useValue: config ? config : {}},
+      ]
+    };
   }
 }

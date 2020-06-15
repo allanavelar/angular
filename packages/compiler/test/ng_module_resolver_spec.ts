@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -9,6 +9,7 @@
 import {NgModuleResolver} from '@angular/compiler/src/ng_module_resolver';
 import {ɵstringify as stringify} from '@angular/core';
 import {NgModule} from '@angular/core/src/metadata';
+import {JitReflector} from '@angular/platform-browser-dynamic/src/compiler_reflector';
 
 class SomeClass1 {}
 class SomeClass2 {}
@@ -28,11 +29,13 @@ class SomeModule {
 
 class SimpleClass {}
 
-export function main() {
+{
   describe('NgModuleResolver', () => {
     let resolver: NgModuleResolver;
 
-    beforeEach(() => { resolver = new NgModuleResolver(); });
+    beforeEach(() => {
+      resolver = new NgModuleResolver(new JitReflector());
+    });
 
     it('should read out the metadata from the class', () => {
       const moduleMetadata = resolver.resolve(SomeModule);
@@ -65,6 +68,5 @@ export function main() {
 
       expect(resolver.resolve(ChildWithDecorator)).toEqual(new NgModule({id: 'c'}));
     });
-
   });
 }
